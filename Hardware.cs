@@ -1,5 +1,7 @@
-﻿using NModbus;
+using NModbus;
+using NModbus.Serial;
 using PCSC;
+using System.IO;
 using System.IO.Ports;
 using System.Text.Json;
 
@@ -11,6 +13,7 @@ public class Config
     public ModbusConfig Modbus { get; set; } = new();
     public RfidConfig Rfid { get; set; } = new();
 }
+
 public class ModbusConfig { public string Port { get; set; } = "COM3"; public int BaudRate { get; set; } = 9600; }
 public class RfidConfig { public string ReaderName { get; set; } = ""; }
 
@@ -35,7 +38,8 @@ public class Hardware
         {
             _port = new SerialPort(Settings.Modbus.Port, Settings.Modbus.BaudRate, Parity.None, 8, StopBits.One);
             _port.Open();
-            _master = new ModbusFactory().CreateRtuMaster(_port);
+            var factory = new ModbusFactory();
+            _master = factory.CreateRtuMaster(new SerialPortAdapter(_port));
             _master.Transport.ReadTimeout = 500;
             return true;
         }
