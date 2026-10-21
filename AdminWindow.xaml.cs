@@ -114,7 +114,7 @@ public partial class AdminWindow : Window
     {
         var service = _lockers.Where(x => x.IsService).ToList();
         var regular = _lockers.Where(x => !x.IsService).Select(x => x.Id).ToList();
-        var list = new List<(int, int, int, int)>();
+        var list = new List<(int Id, int Col, int Row, int RowSpan)>();
         int rIdx = 0;
         
         list.Add((regular[rIdx++], 0, 0, 1)); list.Add((regular[rIdx++], 0, 1, 1)); list.Add((regular[rIdx++], 0, 2, 1));
