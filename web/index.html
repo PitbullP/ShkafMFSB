@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Шкаф МФСБ — Администрирование</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0F172A; color: #fff; height: 100vh; display: flex; flex-direction: column; }
+  .header { height: 64px; background: #1F2937; display: flex; align-items: center; padding: 0 20px; border-bottom: 1px solid #374151; }
+  .header h1 { font-size: 18px; font-weight: bold; flex: 1; }
+  .tabs { display: flex; background: #1F2937; border-bottom: 1px solid #374151; }
+  .tab { padding: 14px 24px; cursor: pointer; font-size: 14px; color: #9CA3AF; border-bottom: 2px solid transparent; }
+  .tab:hover { color: #fff; }
+  .tab.active { color: #fff; border-bottom-color: #1E40AF; }
+  .content { flex: 1; overflow: auto; padding: 16px; }
+  .panel { background: #1F2937; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .btn { padding: 8px 16px; background: #1E40AF; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  .btn:hover { opacity: .85; }
+  .btn.danger { background: #7F1D1D; }
+  .btn.success { background: #1B7A3D; }
+  .field { width: 100%; padding: 8px; background: #111827; color: #fff; border: 1px solid #374151; border-radius: 6px; font-size: 13px; margin-bottom: 8px; }
+  .table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .table th { text-align: left; padding: 8px; color: #9CA3AF; border-bottom: 1px solid #374151; }
+  .table td { padding: 8px; border-bottom: 1px solid #1F2937; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; max-width: 560px; margin: 0 auto; }
+  .locker { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 40px; border-radius: 3px; font-size: 12px; font-weight: bold; cursor: pointer; border: 2px solid transparent; }
+  .locker.free { background: #334155; }
+  .locker.taken { background: #1E40AF; }
+  .locker.service { background: #B45309; }
+  .locker.faulty { background: #7F1D1D; }
+  .locker.selected { border-color: #F59E0B; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+  <!-- Экран логина -->
+  <div id="loginScreen" style="height:100vh; display:flex; align-items:center; justify-content:center;">
+    <div class="panel" style="width:300px; text-align:center;">
+      <h3 style="margin-bottom:15px;">Введите PIN</h3>
+      <input type="password" id="pinInput" class="field" placeholder="0000" onkeydown="if(event.key==='Enter') login()">
+      <button class="btn" style="width:100%; margin-top:10px;" onclick="login()">Войти</button>
+    </div>
+  </div>
+
+  <!-- Основная панель -->
+  <div id="mainScreen" class="hidden" style="height:100vh; display:flex; flex-direction:column;">
+    <div class="header"><h1>Шкаф МФСБ — Администрирование</h1></div>
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('emp', this)">Сотрудники</div>
+      <div class="tab" onclick="switchTab('lockers', this)">Ячейки</div>
+      <div class="tab" onclick="switchTab('settings', this)">Настройки</div>
+    </div>
+    <div class="content">
+      
+      <!-- Вкладка Сотрудники -->
+      <div id="tab-emp" class="tab-panel">
+        <div class="panel">
+          <input type="text" id="searchBox" class="field" placeholder="Поиск по ФИО..." oninput="renderEmployees()">
+          <table class="table">
+            <thead><tr><th>ФИО</th><th>Ячейка</th><th>Меток</th></tr></thead>
+            <tbody id="empList"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Вкладка Ячейки -->
+      <div id="tab-lockers" class="tab-panel hidden">
+        <div class="panel">
+          <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
+            <div>
+              <span style="display:inline-block; width:12px; height:12px; background:#334155; border-radius:2px;"></span> свободна &nbsp;
+              <span style="display:inline-block; width:12px; height:12px; background:#1E40AF; border-radius:2px;"></span> занята &nbsp;
+              <span style="display:inline-block; width:12px; height:12px; background:#B45309; border-radius:2px;"></span> сервисная &nbsp;
+            </div>
+          </div>
+          <div id="lockerGrid" class="grid-4"></div>
+        </div>
+      </div>
+
+      <!-- Вкладка Настройки -->
+      <div id="tab-settings" class="tab-panel hidden">
+        <div class="panel">
+          <h3 style="margin-bottom:15px;">Привязка оборудования</h3>
+          <table class="table">
+            <thead><tr><th>Ячейка</th><th>Модуль</th><th>Канал</th><th>Тест</th></tr></thead>
+            <tbody id="hardwareList"></tbody>
+          </table>
+          <button class="btn success" style="margin-top:15px;" onclick="saveHardware()">Сохранить привязку</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+  let state = { employees: [], lockers: [], tags: [], logs: [] };
+  let selectedLocker = null;
+
+  async function api(path, method = 'GET', body = null) {
+    const res = await fetch(`/api/${path}`, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : null
+    });
+    return res.json();
+  }
+
+  async function loadData() {
+    state = await api('data');
+    renderEmployees();
+    renderLockers();
+    renderHardware();
+  }
+
+  function login() {
+    const pin = document.getElementById('pinInput').value;
+    if (pin === '0000') {
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('mainScreen').classList.remove('hidden');
+      loadData();
+    } else {
+      alert('Неверный PIN');
+    }
+  }
+
+  function switchTab(id, el) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(t => t.classList.add('hidden'));
+    el.classList.add('active');
+    document.getElementById('tab-' + id).classList.remove('hidden');
+  }
+
+  function renderEmployees() {
+    const q = document.getElementById('searchBox').value.toLowerCase();
+    const filtered = state.employees.filter(e => e.fullName.toLowerCase().includes(q));
+    document.getElementById('empList').innerHTML = filtered.map(e => `
+      <tr>
+        <td>${e.fullName}</td>
+        <td>${e.lockerDisplay}</td>
+        <td>${e.tagCount}</td>
+      </tr>
+    `).join('');
+  }
+
+  function renderLockers() {
+    const service = state.lockers.filter(x => x.isService).map(x => x.id);
+    const regular = state.lockers.filter(x => !x.isService).map(x => x.id);
+    let gridHtml = '';
+    let r = 0;
+    
+    // Логика построения 4x17
+    const layout = [];
+    layout.push({id: regular[r++], c: 1, r: 1, s: 1}); layout.push({id: regular[r++], c: 1, r: 2, s: 1}); layout.push({id: regular[r++], c: 1, r: 3, s: 1});
+    layout.push({id: service[0], c: 1, r: 4, s: 4});
+    for(let i=8; i<=17; i++) layout.push({id: regular[r++], c: 1, r: i, s: 1});
+    for(let i=1; i<=17; i++) layout.push({id: regular[r++], c: 2, r: i, s: 1});
+    layout.push({id: regular[r++], c: 3, r: 1, s: 1}); layout.push({id: regular[r++], c: 3, r: 2, s: 1}); layout.push({id: regular[r++], c: 3, r: 3, s: 1});
+    layout.push({id: service[1], c: 3, r: 4, s: 4});
+    for(let i=8; i<=17; i++) layout.push({id: regular[r++], c: 3, r: i, s: 1});
+    for(let i=1; i<=17; i++) layout.push({id: regular[r++], c: 4, r: i, s: 1});
+
+    document.getElementById('lockerGrid').innerHTML = layout.map(item => {
+      const l = state.lockers.find(x => x.id === item.id);
+      if (!l) return '';
+      let cls = 'free';
+      if (l.isService) cls = 'service';
+      else if (l.isFaulty) cls = 'faulty';
+      else if (l.employeeId) cls = 'taken';
+      
+      const style = `grid-column:${item.c}; grid-row:${item.r} / span ${item.s};`;
+      const name = l.isService ? 'Сервис' : (l.ownerName ? l.ownerName.split(' ')[0] : 'своб');
+      return `<div class="locker ${cls}" style="${style}" onclick="selectLocker(${l.id})">${l.id}<br><small style="font-size:9px;font-weight:normal">${name}</small></div>`;
+    }).join('');
+  }
+
+  function renderHardware() {
+    document.getElementById('hardwareList').innerHTML = state.lockers.map(l => `
+      <tr>
+        <td>${l.id} ${l.isService ? '(Сервис)' : ''}</td>
+        <td><input type="number" class="field" style="padding:4px; width:60px; margin:0;" value="${l.moduleId}" onchange="state.lockers.find(x=>x.id===${l.id}).moduleId = parseInt(this.value)"></td>
+        <td><input type="number" class="field" style="padding:4px; width:60px; margin:0;" value="${l.channelId}" onchange="state.lockers.find(x=>x.id===${l.id}).channelId = parseInt(this.value)"></td>
+        <td><button class="btn" style="padding:4px 8px;" onclick="testRelay(${l.id})">Открыть</button></td>
+      </tr>
+    `).join('');
+  }
+
+  async function testRelay(id) {
+    await api('open', 'POST', { lockerId: id });
+    alert('Команда на открытие отправлена!');
+  }
+
+  async function saveHardware() {
+    await api('hardware', 'POST', state.lockers);
+    alert('Сохранено!');
+  }
+</script>
+</body>
+</html>
