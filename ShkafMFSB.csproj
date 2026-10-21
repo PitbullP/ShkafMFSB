@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
@@ -9,10 +9,11 @@
     <RootNamespace>ShkafMFSB</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
 
-    <!-- Добавленные строки для сборки одного файла -->
+    <!-- Сборка в один EXE -->
     <PublishSingleFile>true</PublishSingleFile>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <SelfContained>true</SelfContained>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,6 +21,7 @@
     <PackageReference Include="Dapper" Version="2.1.35" />
     <PackageReference Include="System.IO.Ports" Version="8.0.0" />
     <PackageReference Include="NModbus" Version="3.0.81" />
+    <PackageReference Include="NModbus.Serial" Version="3.0.81" /> <!-- ДОБАВЛЕНА ЭТА СТРОКА -->
     <PackageReference Include="PCSC" Version="6.1.1" />
   </ItemGroup>
 
