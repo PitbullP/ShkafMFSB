@@ -1,72 +1,226 @@
 <Window x:Class="ShkafMFSB.AdminWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Шкаф МФСБ — Администрирование" Width="1280" Height="820" WindowStartupLocation="CenterOwner" Background="#0F172A">
+    
+    <Window.Resources>
+        <!-- Темная тема для DataGrid -->
+        <Style TargetType="DataGrid">
+            <Setter Property="Background" Value="#1F2937"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="RowBackground" Value="#1F2937"/>
+            <Setter Property="AlternatingRowBackground" Value="#111827"/>
+            <Setter Property="BorderBrush" Value="#374151"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="AutoGenerateColumns" Value="False"/>
+            <Setter Property="CanUserAddRows" Value="False"/>
+            <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+            <Setter Property="HorizontalGridLinesBrush" Value="#374151"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#111827"/>
+            <Setter Property="Foreground" Value="#9CA3AF"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+        </Style>
+        <Style TargetType="DataGridCell">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridCell">
+                        <Border Background="{TemplateBinding Background}" Padding="8,6">
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Темная тема для ComboBox -->
+        <Style TargetType="ComboBox">
+            <Setter Property="Background" Value="#111827"/>
+            <Setter Property="Foreground" Value="Black"/>
+            <Setter Property="BorderBrush" Value="#374151"/>
+            <Setter Property="Padding" Value="5"/>
+        </Style>
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="Background" Value="#1F2937"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="5"/>
+        </Style>
+
+        <!-- Темная тема для TextBox -->
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#111827"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#374151"/>
+            <Setter Property="CaretBrush" Value="White"/>
+            <Setter Property="Padding" Value="8,5"/>
+        </Style>
+
+        <!-- Темная тема для TabControl -->
+        <Style TargetType="TabItem">
+            <Setter Property="Background" Value="#1F2937"/>
+            <Setter Property="Foreground" Value="#9CA3AF"/>
+            <Setter Property="Padding" Value="15,8"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="Bd" BorderBrush="#374151" BorderThickness="0,0,0,2" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#1E40AF"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- Стили для кнопок -->
+        <Style x:Key="PrimaryBtn" TargetType="Button">
+            <Setter Property="Background" Value="#1E40AF"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style x:Key="DangerBtn" TargetType="Button" BasedOn="{StaticResource PrimaryBtn}">
+            <Setter Property="Background" Value="#7F1D1D"/>
+        </Style>
+    </Window.Resources>
+
     <Grid>
         <!-- Экран ввода PIN -->
         <Grid x:Name="PinPanel" Background="#0F172A">
             <StackPanel Width="300" VerticalAlignment="Center" HorizontalAlignment="Center">
                 <TextBlock Text="Введите PIN" Foreground="White" FontSize="20" HorizontalAlignment="Center" Margin="0,0,0,10"/>
                 <PasswordBox x:Name="PinBox" Padding="10" FontSize="18" PasswordChar="●"/>
-                <Button Content="Войти" Margin="0,10,0,0" Padding="10" Background="#1E40AF" Foreground="White" Click="Login_Click"/>
+                <Button Content="Войти" Margin="0,10,0,0" Style="{StaticResource PrimaryBtn}" Click="Login_Click"/>
             </StackPanel>
         </Grid>
 
         <!-- Основная панель -->
         <Grid x:Name="MainPanel" Visibility="Collapsed">
-            <TabControl Margin="10" Background="Transparent" BorderThickness="0">
-                <!-- Вкладка Сотрудники -->
+            <TabControl Margin="15" Background="Transparent" BorderThickness="0">
+                
+                <!-- ВКЛАДКА: СОТРУДНИКИ -->
                 <TabItem Header="Сотрудники">
-                    <Grid Margin="10">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="400"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0" Margin="0,0,10,0">
-                            <TextBox x:Name="SearchBox" TextChanged="SearchBox_TextChanged" Margin="0,0,0,10" Padding="5" Background="#1F2937" Foreground="White"/>
-                            <DataGrid x:Name="EmpGrid" AutoGenerateColumns="False" IsReadOnly="True" SelectionChanged="EmpGrid_SelectionChanged" Background="#1F2937" Foreground="White">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="ФИО" Binding="{Binding FullName}" Width="*"/>
-                                    <DataGridTextColumn Header="Ячейка" Binding="{Binding LockerDisplay}" Width="80"/>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </StackPanel>
-                        <Border Grid.Column="1" Background="#1F2937" Margin="10,0,0,0" Padding="20">
-                            <StackPanel x:Name="EmpDetailsPanel">
-                                <TextBlock Text="Выберите сотрудника" Foreground="#6B7280" HorizontalAlignment="Center" Margin="0,50,0,0"/>
-                            </StackPanel>
+                    <Grid Margin="0,15,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="400"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <!-- Левая колонка: поиск и список -->
+                        <Border Background="#1F2937" CornerRadius="8" Padding="15" Margin="0,0,15,0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                
+                                <StackPanel Orientation="Horizontal" Grid.Row="0" Margin="0,0,0,10">
+                                    <TextBox x:Name="SearchBox" Width="220" TextChanged="SearchBox_TextChanged"/>
+                                    <Button Content="+ Добавить" Style="{StaticResource PrimaryBtn}" Click="AddEmployee_Click" Margin="10,0,0,0"/>
+                                </StackPanel>
+
+                                <DataGrid x:Name="EmpGrid" Grid.Row="1" SelectionChanged="EmpGrid_SelectionChanged" IsReadOnly="True">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="ФИО" Binding="{Binding FullName}" Width="*"/>
+                                        <DataGridTextColumn Header="Ячейка" Binding="{Binding LockerDisplay}" Width="80"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </Border>
+
+                        <!-- Правая колонка: карточка сотрудника -->
+                        <Border Grid.Column="1" Background="#1F2937" CornerRadius="8" Padding="20">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <StackPanel x:Name="EmpDetailsPanel">
+                                    <TextBlock Text="Выберите сотрудника из списка слева" Foreground="#6B7280" HorizontalAlignment="Center" Margin="0,100,0,0" FontSize="16"/>
+                                </StackPanel>
+                            </ScrollViewer>
                         </Border>
                     </Grid>
                 </TabItem>
                 
-                <!-- Вкладка Ячейки -->
+                <!-- ВКЛАДКА: ЯЧЕЙКИ -->
                 <TabItem Header="Ячейки">
-                    <Grid Margin="10">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="350"/></Grid.ColumnDefinitions>
-                        <Grid x:Name="LockerMatrix" Grid.Column="0" Margin="0,0,10,0" MaxWidth="560" HorizontalAlignment="Center"/>
-                        <Border Grid.Column="1" Background="#1F2937" Padding="20">
+                    <Grid Margin="0,15,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="350"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Сетка ячеек -->
+                        <Border Background="#1F2937" CornerRadius="8" Padding="20" Margin="0,0,15,0">
+                            <StackPanel>
+                                <!-- Легенда -->
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
+                                    <Rectangle Width="14" Height="14" Fill="#334155" Margin="0,0,5,0"/>
+                                    <TextBlock Text="свободна" Foreground="#9CA3AF" Margin="0,0,15,0" VerticalAlignment="Center"/>
+                                    <Rectangle Width="14" Height="14" Fill="#1E40AF" Margin="0,0,5,0"/>
+                                    <TextBlock Text="занята" Foreground="#9CA3AF" Margin="0,0,15,0" VerticalAlignment="Center"/>
+                                    <Rectangle Width="14" Height="14" Fill="#B45309" Margin="0,0,5,0"/>
+                                    <TextBlock Text="сервисная" Foreground="#9CA3AF" Margin="0,0,15,0" VerticalAlignment="Center"/>
+                                    <Rectangle Width="14" Height="14" Fill="#7F1D1D" Margin="0,0,5,0"/>
+                                    <TextBlock Text="неисправна" Foreground="#9CA3AF" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                
+                                <!-- Сама матрица 4x17 -->
+                                <Grid x:Name="LockerMatrix" MaxWidth="560" HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Детали ячейки -->
+                        <Border Grid.Column="1" Background="#1F2937" CornerRadius="8" Padding="20">
                             <StackPanel x:Name="LockerDetailsPanel">
-                                <TextBlock Text="Выберите ячейку" Foreground="#6B7280" HorizontalAlignment="Center" Margin="0,50,0,0"/>
+                                <TextBlock Text="Выберите ячейку на схеме" Foreground="#6B7280" HorizontalAlignment="Center" Margin="0,100,0,0" FontSize="16"/>
                             </StackPanel>
                         </Border>
                     </Grid>
                 </TabItem>
 
-                <!-- Вкладка Настройки -->
+                <!-- ВКЛАДКА: НАСТРОЙКИ -->
                 <TabItem Header="Настройки">
-                    <StackPanel Margin="20">
-                        <TextBlock Text="Привязка оборудования (Модуль / Канал)" FontSize="18" Foreground="White" Margin="0,0,0,10"/>
-                        <DataGrid x:Name="HardwareGrid" AutoGenerateColumns="False" Background="#1F2937" Foreground="White" Height="400">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="Ячейка" Binding="{Binding Id}" IsReadOnly="True"/>
-                                <DataGridTextColumn Header="Модуль" Binding="{Binding ModuleId}"/>
-                                <DataGridTextColumn Header="Канал" Binding="{Binding ChannelId}"/>
-                                <DataGridTemplateColumn Header="Тест">
-                                    <DataGridTemplateColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <Button Content="Открыть" Click="TestRelay_Click" Tag="{Binding}" Background="#1E40AF" Foreground="White" Padding="5"/>
-                                        </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-                            </DataGrid.Columns>
-                        </DataGrid>
-                        <Button Content="Сохранить привязку" Click="SaveHardware_Click" Background="#1B7A3D" Foreground="White" Padding="10" Margin="0,10,0,0" HorizontalAlignment="Left"/>
-                    </StackPanel>
+                    <Border Background="#1F2937" CornerRadius="8" Padding="20" Margin="0,15,0,0">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Text="Привязка оборудования (Модуль / Канал)" FontSize="18" Foreground="White" FontWeight="Bold" Margin="0,0,0,15"/>
+                            
+                            <DataGrid x:Name="HardwareGrid" Grid.Row="1">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Ячейка" Binding="{Binding Id}" IsReadOnly="True" Width="100"/>
+                                    <DataGridTextColumn Header="Модуль (1-2)" Binding="{Binding ModuleId, UpdateSourceTrigger=PropertyChanged}" Width="120"/>
+                                    <DataGridTextColumn Header="Канал (0-31)" Binding="{Binding ChannelId, UpdateSourceTrigger=PropertyChanged}" Width="120"/>
+                                    <DataGridTemplateColumn Header="Проверка">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Button Content="Открыть" Style="{StaticResource PrimaryBtn}" Click="TestRelay_Click" Tag="{Binding}" Padding="8,3"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            
+                            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,15,0,0">
+                                <Button Content="Сохранить привязку" Style="{StaticResource PrimaryBtn}" Click="SaveHardware_Click" Background="#1B7A3D"/>
+                                <TextBlock Text="  (Проверьте каждый замок перед сохранением)" Foreground="#9CA3AF" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
                 </TabItem>
             </TabControl>
         </Grid>
