@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -16,7 +17,6 @@ public partial class KioskWindow : Window
         InitializeComponent();
         App.Hw.TagScanned += OnTagScanned;
         
-        // Демо-режим: имитация сканирования
         if (App.Hw.Settings.DemoMode)
         {
             Task.Run(async () => {
@@ -75,18 +75,8 @@ public partial class KioskWindow : Window
         if (_adminClicks >= 5)
         {
             _adminClicks = 0;
-            
-            // --- РЕЖИМ ОТЛАДКИ (ЗАКОММЕНТИРОВАНО) ---
-            // this.Topmost = false;
-            // this.Cursor = Cursors.Arrow;
-            
-            var admin = new AdminWindow();
-            admin.Owner = this;
-            admin.ShowDialog();
-            
-            // --- РЕЖИМ ОТЛАДКИ (ЗАКОММЕНТИРОВАНО) ---
-            // this.Topmost = true;
-            // this.Cursor = Cursors.None;
+            // Открываем браузер по умолчанию с админкой
+            Process.Start(new ProcessStartInfo("http://localhost:5000") { UseShellExecute = true });
         }
     }
 }
