@@ -1,0 +1,67 @@
+﻿using Microsoft.Data.Sqlite;
+using Dapper;
+using System.IO;
+
+namespace ShkafMFSB;
+
+public class Database
+{
+    private readonly string _connStr;
+    public Database()
+    {
+        var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "shkaf_mfsb.db");
+        _connStr = $"Data Source={path}";
+    }
+
+    private SqliteConnection Open() { var c = new SqliteConnection(_connStr); c.Open(); return c; }
+
+    public void Initialize()
+    {
+        using var c = Open();
+        c.Execute(@"CREATE TABLE IF NOT EXISTS Employees (Id INTEGER PRIMARY KEY AUTOINCREMENT, FullName TEXT NOT NULL);
+                    CREATE TABLE IF NOT EXISTS Lockers (Id INTEGER PRIMARY KEY, EmployeeId INTEGER, IsService INTEGER, IsFaulty INTEGER, ModuleId INTEGER, ChannelId INTEGER);
+                    CREATE TABLE IF NOT EXISTS RfidTags (Uid TEXT PRIMARY KEY, EmployeeId INTEGER, Description TEXT);
+                    CREATE TABLE IF NOT EXISTS Logs (Id INTEGER PRIMARY KEY AUTOINCREMENT, Timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, EmployeeId INTEGER, LockerId INTEGER, Action TEXT, Details TEXT);");
+
+        var count = c.ExecuteScalar<int>("SELECT COUNT(*) FROM Lockers");
+        if (count == 0)
+        {
+            for (int i = 1; i <= 62; i++)
+            {
+                bool isService = i > 60;
+                int mod = i <= 32 ? 1 : 2;
+                int ch = (i - 1) % 32;
+                c.Execute("INSERT INTO Lockers (Id, IsService, IsFaulty, ModuleId, ChannelId) VALUES (@id, @s, 0, @m, @ch)", 
+                    new { id = i, s = isService ? 1 : 0, m = mod, ch = ch });
+            }
+        }
+    }
+
+    public List<Employee> GetEmployees(string search = "")
+    {
+        using var c = Open();
+        var sql = @"SELECT e.Id, e.FullName, (SELECT COUNT(*) FROM RfidTags WHERE EmployeeId = e.Id) as TagCount FROM Employees e";
+        if (!string.IsNullOrEmpty(search)) sql += " WHERE e.FullName LIKE @s";
+        sql += " ORDER BY e.FullName";
+        
+        var list = c.Query<Employee>(sql, new { s = $"%{search}%" }).ToList();
+        foreach (var e in list)
+        {
+            var l = c.QueryFirstOrDefault<int?>("SELECT Id FROM Lockers WHERE EmployeeId = @id", new { id = e.Id });
+            e.LockerDisplay = l.HasValue ? $"№ {l}" : "—";
+        }
+        return list;
+    }
+
+    public List<Locker> GetLockers()
+    {
+        using var c = Open();
+        return c.Query<Locker>(@"SELECT l.Id, l.EmployeeId, l.IsService, l.IsFaulty, l.ModuleId, l.ChannelId, e.FullName as OwnerName 
+                                 FROM Lockers l LEFT JOIN Employees e ON e.Id = l.EmployeeId ORDER BY l.Id").ToList();
+    }
+
+    public void AssignLocker(int lockerId, int? employeeId) { using var c = Open(); c.Execute("UPDATE Lockers SET EmployeeId = @e WHERE Id = @id", new { e = employeeId, id = lockerId }); }
+    public void UpdateHardware(int id, int module, int channel) { using var c = Open(); c.Execute("UPDATE Lockers SET ModuleId = @m, ChannelId = @ch WHERE Id = @id", new { m = module, ch = channel, id }); }
+    public void AddEmployee(string name) { using var c = Open(); c.Execute("INSERT INTO Employees (FullName) VALUES (@n)", new { n = name }); }
+    public void AddLog(int? empId, int? lockerId, string action, string details = "") { using var c = Open(); c.Execute("INSERT INTO Logs (EmployeeId, LockerId, Action, Details) VALUES (@e, @l, @a, @d)", new { e = empId, l = lockerId, a = action, d = details }); }
+}
