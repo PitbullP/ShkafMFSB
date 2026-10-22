@@ -1,25 +1,10 @@
-using System.Windows;
-
-namespace ShkafMFSB;
-
-public partial class App : Application
-{
-    public static Database Db { get; private set; } = null!;
-    public static Hardware Hw { get; private set; } = null!;
-    public static WebServer Server { get; private set; } = null!;
-    public static KioskWindow? MainKiosk { get; set; }
-
-    protected override void OnStartup(StartupEventArgs e)
-    {
-        base.OnStartup(e);
-        Db = new Database();
-        Db.Initialize();
-        
-        Hw = new Hardware();
-        Hw.ConnectModbus();
-        Hw.StartRfid();
-
-        Server = new WebServer(Db, Hw);
-        Server.Start();
-    }
-}
+<Application x:Class="ShkafMFSB.App" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             StartupUri="KioskWindow.xaml">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Resources/Icons.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>
