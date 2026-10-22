@@ -23,10 +23,8 @@ public class WebServer
     {
         try
         {
-            // Явно указываем localhost и 127.0.0.1
             _listener.Prefixes.Add($"http://localhost:{_port}/");
             _listener.Prefixes.Add($"http://127.0.0.1:{_port}/");
-            // Для доступа с других устройств (требует прав администратора)
             _listener.Prefixes.Add($"http://*:{_port}/"); 
             
             _listener.Start();
@@ -80,6 +78,12 @@ public class WebServer
                             tags = _db.GetTags(),
                             logs = _db.GetLogs()
                         });
+                        break;
+
+                    case "/api/system-log":
+                        string logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app.log");
+                        string logText = File.Exists(logPath) ? File.ReadAllText(logPath) : "Лог пуст.";
+                        json = JsonSerializer.Serialize(new { log = logText });
                         break;
 
                     case "/api/employee":
