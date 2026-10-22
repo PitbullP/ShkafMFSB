@@ -13,14 +13,16 @@ public static class Logger
         {
             lock (LockObj)
             {
-                File.AppendAllText(LogPath, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}\n");
+                // Заменяем все переносы строк на пробелы, чтобы запись была в одну строку
+                string cleanMessage = message.Replace("\r\n", " ").Replace("\n", " ");
+                File.AppendAllText(LogPath, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {cleanMessage}{Environment.NewLine}");
             }
         }
-        catch { /* Если не удалось записать лог, просто игнорируем */ }
+        catch { /* Игнорируем ошибки записи лога */ }
     }
 
     public static void LogError(string context, Exception ex)
     {
-        Log($"!!! ОШИБКА В {context}: {ex.Message}\n{ex.StackTrace}");
+        Log($"!!! ОШИБКА В {context}: {ex.Message} | {ex.StackTrace}");
     }
 }
