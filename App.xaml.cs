@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 
 namespace ShkafMFSB;
 
@@ -6,15 +6,23 @@ public partial class App : Application
 {
     public static Database Db { get; private set; } = null!;
     public static Hardware Hw { get; private set; } = null!;
+    public static WebServer Server { get; private set; } = null!;
+    
+    // Вот та самая переменная, на которую ругается компилятор
+    public static KioskWindow? MainKiosk { get; set; } 
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        
         Db = new Database();
         Db.Initialize();
         
         Hw = new Hardware();
         Hw.ConnectModbus();
         Hw.StartRfid();
+
+        Server = new WebServer(Db, Hw);
+        Server.Start();
     }
 }
