@@ -3,6 +3,7 @@ using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Windows;
+using System.Reflection;
 
 namespace ShkafMFSB;
 
@@ -29,6 +30,7 @@ public class WebServer
             
             _listener.Start();
             Logger.Log($"Веб-сервер успешно запущен на порту {_port}");
+            Logger.Log($"Путь к EXE: {Environment.ProcessPath}");
         }
         catch (Exception ex)
         {
@@ -63,12 +65,15 @@ public class WebServer
 
         try
         {
-            if (req.Url!.AbsolutePath.StartsWith("/api/"))
+            string reqPath = req.Url?.AbsolutePath ?? "/";
+            Logger.Log($"HTTP-Запрос: {req.HttpMethod} {reqPath}");
+
+            if (reqPath.StartsWith("/api/"))
             {
                 res.ContentType = "application/json; charset=utf-8";
                 string json = "{}";
 
-                switch (req.Url.AbsolutePath)
+                switch (reqPath)
                 {
                     case "/api/data":
                         json = JsonSerializer.Serialize(new
@@ -81,7 +86,7 @@ public class WebServer
                         break;
 
                     case "/api/system-log":
-                        string logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app.log");
+                        string logPath = Path.Combine(Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory, "app.log");
                         string logText = File.Exists(logPath) ? File.ReadAllText(logPath) : "Лог пуст.";
                         json = JsonSerializer.Serialize(new { log = logText });
                         break;
@@ -146,23 +151,60 @@ public class WebServer
                 res.ContentLength64 = bytes.Length;
                 await res.OutputStream.WriteAsync(bytes);
             }
+            else if (reqPath == "/favicon.ico")
+            {
+                res.StatusCode = 404;
+            }
             else
             {
-                string filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "web", req.Url.AbsolutePath.TrimStart('/'));
-                if (req.Url.AbsolutePath == "/") filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "web", "index.html");
+                string htmlContent = "";
+
+                // 1. Ищем файл рядом с реальным EXE
+                string? exePath = Environment.ProcessPath;
+                string? exeDir = exePath != null ? Path.GetDirectoryName(exePath) : AppContext.BaseDirectory;
+                string webDir = Path.Combine(exeDir!, "web");
+                string filePath = Path.Combine(webDir, reqPath.TrimStart('/'));
+                if (reqPath == "/" || reqPath == "/index.html") 
+                    filePath = Path.Combine(webDir, "index.html");
 
                 if (File.Exists(filePath))
                 {
-                    res.ContentType = filePath.EndsWith(".html") ? "text/html; charset=utf-8" : "text/plain; charset=utf-8";
-                    var bytes = await File.ReadAllBytesAsync(filePath);
-                    res.ContentLength64 = bytes.Length;
-                    await res.OutputStream.WriteAsync(bytes);
+                    htmlContent = await File.ReadAllTextAsync(filePath);
+                    Logger.Log($"HTML прочитан с диска: {filePath} (размер: {htmlContent.Length} байт)");
                 }
-                else res.StatusCode = 404;
+                else
+                {
+                    // 2. Читаем из встроенных ресурсов
+                    var assembly = Assembly.GetExecutingAssembly();
+                    var resourceName = "ShkafMFSB.web.index.html"; 
+                    
+                    using Stream? stream = assembly.GetManifestResourceStream(resourceName);
+                    if (stream != null)
+                    {
+                        using StreamReader reader = new StreamReader(stream);
+                        htmlContent = await reader.ReadToEndAsync();
+                        Logger.Log($"HTML прочитан из ресурсов EXE (размер: {htmlContent.Length} байт)");
+                    }
+                    else
+                    {
+                        Logger.Log("КРИТИЧЕСКАЯ ОШИБКА: HTML не найден ни на диске, ни в ресурсах!");
+                        res.StatusCode = 404;
+                        var errBytes = Encoding.UTF8.GetBytes("Файл index.html не найден.");
+                        await res.OutputStream.WriteAsync(errBytes);
+                        return;
+                    }
+                }
+
+                var bytes = Encoding.UTF8.GetBytes(htmlContent);
+                res.ContentType = "text/html; charset=utf-8";
+                res.ContentLength64 = bytes.Length;
+                await res.OutputStream.WriteAsync(bytes);
+                Logger.Log($"Отправлено {bytes.Length} байт клиенту.");
             }
         }
         catch (Exception ex)
         {
+            Logger.LogError("HandleRequest", ex);
             res.StatusCode = 500;
             var bytes = Encoding.UTF8.GetBytes(ex.Message);
             await res.OutputStream.WriteAsync(bytes);
