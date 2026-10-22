@@ -15,8 +15,10 @@ public partial class KioskWindow : Window
     public KioskWindow()
     {
         InitializeComponent();
+        App.MainKiosk = this; // Сохраняем ссылку для веб-сервера
         App.Hw.TagScanned += OnTagScanned;
         
+        // Демо-режим: имитация сканирования
         if (App.Hw.Settings.DemoMode)
         {
             Task.Run(async () => {
@@ -38,16 +40,51 @@ public partial class KioskWindow : Window
         SetState("reading", "Считывание…", "", "Icon.Reading", "#1E40AF");
         await Task.Delay(400);
 
-        if (uid == "A1B2C3D4") // Демо успех
+        // Ищем метку в базе данных
+        var tags = App.Db.GetTags();
+        var tag = tags.FirstOrDefault(t => t.Uid == uid);
+
+        if (tag == null)
         {
-            SetState("granted", "Иванов Иван Иванович", "Ячейка № 12 открыта", "Icon.Success", "#1B7A3D");
-            await App.Hw.PulseRelayAsync(1, 11);
-            await Task.Delay(5000);
+            // Метка не найдена
+            App.Db.AddLog(null, null, "DENIED_UNKNOWN_TAG", uid);
+            SetState("denied", "Метка не зарегистрирована", "Обратитесь к администратору", "Icon.Denied", "#B01E1E");
+            await Task.Delay(4000);
         }
         else
         {
-            SetState("denied", "Метка не зарегистрирована", "Обратитесь к администратору", "Icon.Denied", "#B01E1E");
-            await Task.Delay(4000);
+            // Метка найдена, ищем ячейку сотрудника
+            var employees = App.Db.GetEmployees();
+            var emp = employees.FirstOrDefault(e => e.Id == tag.EmployeeId);
+            
+            if (emp == null)
+            {
+                App.Db.AddLog(tag.EmployeeId, null, "DENIED_NO_EMPLOYEE", uid);
+                SetState("denied", "Сотрудник не найден", "Обратитесь к администратору", "Icon.Denied", "#B01E1E");
+                await Task.Delay(4000);
+            }
+            else
+            {
+                var lockers = App.Db.GetLockers();
+                var locker = lockers.FirstOrDefault(l => l.EmployeeId == emp.Id);
+
+                if (locker == null)
+                {
+                    // У сотрудника нет ячейки
+                    App.Db.AddLog(emp.Id, null, "DENIED_NO_LOCKER", uid);
+                    SetState("denied", emp.FullName, "За вами не закреплена ячейка", "Icon.Warning", "#C06A00");
+                    await Task.Delay(4000);
+                }
+                else
+                {
+                    // Все отлично, открываем ячейку
+                    App.Db.AddLog(emp.Id, locker.Id, "GRANTED", uid);
+                    SetState("granted", emp.FullName, $"Ячейка № {locker.Id} открыта", "Icon.Success", "#1B7A3D");
+                    
+                    await App.Hw.PulseRelayAsync(locker.ModuleId, locker.ChannelId);
+                    await Task.Delay(5000);
+                }
+            }
         }
 
         SetState("idle", "Приложите карту к считывателю", "", "Icon.Idle", "#0B2A4A");
@@ -75,7 +112,9 @@ public partial class KioskWindow : Window
         if (_adminClicks >= 5)
         {
             _adminClicks = 0;
-            // Открываем браузер по умолчанию с админкой
+            
+            // Сворачиваем киоск и открываем браузер
+            this.WindowState = WindowState.Minimized;
             Process.Start(new ProcessStartInfo("http://localhost:5000") { UseShellExecute = true });
         }
     }
