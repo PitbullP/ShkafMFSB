@@ -2,7 +2,7 @@ using System.Net;
 using System.IO;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
+using System.Windows;
 
 namespace ShkafMFSB;
 
@@ -22,7 +22,7 @@ public class WebServer
     public void Start()
     {
         _listener.Prefixes.Add($"http://localhost:{_port}/");
-        _listener.Prefixes.Add($"http://*:{_port}/"); // Для доступа из локальной сети
+        _listener.Prefixes.Add($"http://*:{_port}/"); 
         _listener.Start();
         
         Task.Run(async () =>
@@ -47,11 +47,10 @@ public class WebServer
 
         try
         {
-            // API Endpoints
             if (req.Url!.AbsolutePath.StartsWith("/api/"))
             {
                 res.ContentType = "application/json; charset=utf-8";
-                string json = "";
+                string json = "{}";
 
                 switch (req.Url.AbsolutePath)
                 {
@@ -104,6 +103,21 @@ public class WebServer
                             if (locker != null) await _hw.PulseRelayAsync(locker.ModuleId, locker.ChannelId);
                         }
                         break;
+
+                    case "/api/restore-kiosk":
+                        if (req.HttpMethod == "POST")
+                        {
+                            App.MainKiosk?.Dispatcher.Invoke(() =>
+                            {
+                                App.MainKiosk.WindowState = WindowState.Maximized;
+                                if (!App.Hw.Settings.DemoMode) 
+                                {
+                                    App.MainKiosk.Topmost = true;
+                                    App.MainKiosk.Cursor = System.Windows.Input.Cursors.None;
+                                }
+                            });
+                        }
+                        break;
                 }
 
                 var bytes = Encoding.UTF8.GetBytes(json);
@@ -112,7 +126,6 @@ public class WebServer
             }
             else
             {
-                // Отдача HTML и статики (index.html)
                 string filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "web", req.Url.AbsolutePath.TrimStart('/'));
                 if (req.Url.AbsolutePath == "/") filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "web", "index.html");
 
@@ -123,10 +136,7 @@ public class WebServer
                     res.ContentLength64 = bytes.Length;
                     await res.OutputStream.WriteAsync(bytes);
                 }
-                else
-                {
-                    res.StatusCode = 404;
-                }
+                else res.StatusCode = 404;
             }
         }
         catch (Exception ex)
