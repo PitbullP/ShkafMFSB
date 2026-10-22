@@ -15,10 +15,9 @@ public partial class KioskWindow : Window
     public KioskWindow()
     {
         InitializeComponent();
-        App.MainKiosk = this; // Сохраняем ссылку для веб-сервера
+        App.MainKiosk = this;
         App.Hw.TagScanned += OnTagScanned;
         
-        // Демо-режим: имитация сканирования
         if (App.Hw.Settings.DemoMode)
         {
             Task.Run(async () => {
@@ -40,20 +39,17 @@ public partial class KioskWindow : Window
         SetState("reading", "Считывание…", "", "Icon.Reading", "#1E40AF");
         await Task.Delay(400);
 
-        // Ищем метку в базе данных
         var tags = App.Db.GetTags();
         var tag = tags.FirstOrDefault(t => t.Uid == uid);
 
         if (tag == null)
         {
-            // Метка не найдена
             App.Db.AddLog(null, null, "DENIED_UNKNOWN_TAG", uid);
             SetState("denied", "Метка не зарегистрирована", "Обратитесь к администратору", "Icon.Denied", "#B01E1E");
             await Task.Delay(4000);
         }
         else
         {
-            // Метка найдена, ищем ячейку сотрудника
             var employees = App.Db.GetEmployees();
             var emp = employees.FirstOrDefault(e => e.Id == tag.EmployeeId);
             
@@ -70,14 +66,12 @@ public partial class KioskWindow : Window
 
                 if (locker == null)
                 {
-                    // У сотрудника нет ячейки
                     App.Db.AddLog(emp.Id, null, "DENIED_NO_LOCKER", uid);
                     SetState("denied", emp.FullName, "За вами не закреплена ячейка", "Icon.Warning", "#C06A00");
                     await Task.Delay(4000);
                 }
                 else
                 {
-                    // Все отлично, открываем ячейку
                     App.Db.AddLog(emp.Id, locker.Id, "GRANTED", uid);
                     SetState("granted", emp.FullName, $"Ячейка № {locker.Id} открыта", "Icon.Success", "#1B7A3D");
                     
@@ -113,9 +107,9 @@ public partial class KioskWindow : Window
         {
             _adminClicks = 0;
             
-            // Сворачиваем киоск и открываем браузер
+            // Сворачиваем киоск и открываем браузер на порту 54321
             this.WindowState = WindowState.Minimized;
-            Process.Start(new ProcessStartInfo("http://localhost:5000") { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo("http://localhost:54321") { UseShellExecute = true }); 
         }
     }
 }
