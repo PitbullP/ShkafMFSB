@@ -30,6 +30,7 @@
   .locker.faulty { background: #7F1D1D; }
   .locker.selected { border-color: #F59E0B; }
   .hidden { display: none; }
+  .log-box { background: #111827; color: #10B981; font-family: monospace; padding: 15px; border-radius: 6px; white-space: pre-wrap; font-size: 13px; height: 500px; overflow-y: auto; border: 1px solid #374151; }
 </style>
 </head>
 <body>
@@ -49,7 +50,8 @@
     <div class="tabs">
       <div class="tab active" onclick="switchTab('emp', this)">Сотрудники</div>
       <div class="tab" onclick="switchTab('lockers', this)">Ячейки</div>
-      <div class="tab" onclick="switchTab('log', this)">Журнал</div>
+      <div class="tab" onclick="switchTab('log', this)">Журнал событий</div>
+      <div class="tab" onclick="switchTab('syslog', this)">Системный лог</div>
       <div class="tab" onclick="switchTab('settings', this)">Настройки</div>
     </div>
     <div class="content">
@@ -70,13 +72,23 @@
         </div>
       </div>
 
-      <!-- Новая вкладка Журнал -->
       <div id="tab-log" class="tab-panel hidden">
         <div class="panel">
           <table class="table">
             <thead><tr><th>Время</th><th>Сотрудник</th><th>Событие</th><th>Ячейка</th><th>UID</th></tr></thead>
             <tbody id="logList"></tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- Новая вкладка Системный лог -->
+      <div id="tab-syslog" class="tab-panel hidden">
+        <div class="panel">
+          <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+            <h3>Файл app.log</h3>
+            <button class="btn" onclick="loadSystemLog()">Обновить</button>
+          </div>
+          <div id="syslogText" class="log-box">Загрузка...</div>
         </div>
       </div>
 
@@ -132,6 +144,14 @@
     document.querySelectorAll('.tab-panel').forEach(t => t.classList.add('hidden'));
     el.classList.add('active');
     document.getElementById('tab-' + id).classList.remove('hidden');
+    if (id === 'syslog') loadSystemLog();
+  }
+
+  async function loadSystemLog() {
+    const res = await api('system-log');
+    const box = document.getElementById('syslogText');
+    box.textContent = res.log;
+    box.scrollTop = box.scrollHeight; // Прокрутка вниз
   }
 
   function renderEmployees() {
@@ -166,7 +186,6 @@
     }).join('');
   }
 
-  // Вывод журнала событий
   function renderLogs() {
     document.getElementById('logList').innerHTML = state.logs.map(l => `
       <tr>
