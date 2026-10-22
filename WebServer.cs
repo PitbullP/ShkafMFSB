@@ -12,7 +12,7 @@ public class WebServer
     private readonly HttpListener _listener = new();
     private readonly Database _db;
     private readonly Hardware _hw;
-    private readonly string _port = "5000";
+    private readonly string _port = "54321"; // ЛЕВЫЙ ПОРТ
 
     public WebServer(Database db, Hardware hw)
     {
@@ -24,6 +24,7 @@ public class WebServer
     {
         try
         {
+            _listener.Prefixes.Clear();
             _listener.Prefixes.Add($"http://localhost:{_port}/");
             _listener.Prefixes.Add($"http://127.0.0.1:{_port}/");
             _listener.Prefixes.Add($"http://*:{_port}/"); 
@@ -159,7 +160,6 @@ public class WebServer
             {
                 string htmlContent = "";
 
-                // 1. Ищем файл рядом с реальным EXE
                 string? exePath = Environment.ProcessPath;
                 string? exeDir = exePath != null ? Path.GetDirectoryName(exePath) : AppContext.BaseDirectory;
                 string webDir = Path.Combine(exeDir!, "web");
@@ -174,7 +174,7 @@ public class WebServer
                 }
                 else
                 {
-                    // 2. Читаем из встроенных ресурсов
+                    Logger.Log($"Файл не найден по пути: {filePath}. Пытаемся прочитать из ресурсов...");
                     var assembly = Assembly.GetExecutingAssembly();
                     var resourceName = "ShkafMFSB.web.index.html"; 
                     
