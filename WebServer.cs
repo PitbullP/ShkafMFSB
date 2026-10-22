@@ -21,9 +21,19 @@ public class WebServer
 
     public void Start()
     {
-        _listener.Prefixes.Add($"http://localhost:{_port}/");
-        _listener.Prefixes.Add($"http://*:{_port}/"); 
-        _listener.Start();
+        try
+        {
+            _listener.Prefixes.Add($"http://localhost:{_port}/");
+            _listener.Prefixes.Add($"http://*:{_port}/"); 
+            _listener.Start();
+            Logger.Log($"Веб-сервер успешно запущен на порту {_port}");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError("WebServer.Start", ex);
+            MessageBox.Show($"Не удалось запустить веб-сервер на порту {_port}.\nВозможно, порт уже занят другой программой или требуются права администратора.\n\n{ex.Message}", "Ошибка веб-сервера", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
         
         Task.Run(async () =>
         {
