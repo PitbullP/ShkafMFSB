@@ -23,15 +23,22 @@ public class WebServer
     {
         try
         {
+            // Явно указываем localhost и 127.0.0.1
             _listener.Prefixes.Add($"http://localhost:{_port}/");
+            _listener.Prefixes.Add($"http://127.0.0.1:{_port}/");
+            // Для доступа с других устройств (требует прав администратора)
             _listener.Prefixes.Add($"http://*:{_port}/"); 
+            
             _listener.Start();
             Logger.Log($"Веб-сервер успешно запущен на порту {_port}");
         }
         catch (Exception ex)
         {
             Logger.LogError("WebServer.Start", ex);
-            MessageBox.Show($"Не удалось запустить веб-сервер на порту {_port}.\nВозможно, порт уже занят другой программой или требуются права администратора.\n\n{ex.Message}", "Ошибка веб-сервера", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show($"Не удалось запустить веб-сервер на порту {_port}.\n\n" +
+                            $"Убедитесь, что программа запущена от имени Администратора.\n" +
+                            $"Текст ошибки: {ex.Message}", 
+                            "Ошибка веб-сервера", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
         
@@ -44,6 +51,7 @@ public class WebServer
                     var ctx = await _listener.GetContextAsync();
                     _ = Task.Run(() => HandleRequest(ctx));
                 }
+                catch (HttpListenerException) { break; }
                 catch { /* Ignore */ }
             }
         });
