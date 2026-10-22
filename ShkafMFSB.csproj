@@ -25,12 +25,19 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Копируем конфиг -->
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>
-    <!-- Копируем папку web в выходную директорию -->
-    <None Update="web\**\*.*">
+    
+    <!-- Встраиваем HTML в EXE (на всякий случай) -->
+    <EmbeddedResource Include="web\index.html" />
+    
+    <!-- Копируем папку web рядом с EXE -->
+    <None Update="web\index.html">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>
   </ItemGroup>
 </Project>
