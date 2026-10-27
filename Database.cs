@@ -81,6 +81,14 @@ public class Database
         c.Execute("INSERT INTO Employees (FullName) VALUES (@n)", new { n = name });
     }
 
+    public void DeleteEmployee(int id)
+    {
+        using var c = Open();
+        c.Execute("UPDATE Lockers SET EmployeeId = NULL WHERE EmployeeId = @id", new { id });
+        c.Execute("DELETE FROM RfidTags WHERE EmployeeId = @id", new { id });
+        c.Execute("DELETE FROM Employees WHERE Id = @id", new { id });
+    }
+
     public List<RfidTag> GetTags()
     {
         using var c = Open();
