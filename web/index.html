@@ -8,9 +8,10 @@
   body { font-family: 'Segoe UI', sans-serif; background: #0F172A; color: #fff; height: 100vh; display: flex; flex-direction: column; }
   .header { height: 64px; background: #1F2937; display: flex; align-items: center; padding: 0 20px; border-bottom: 1px solid #374151; }
   .header h1 { font-size: 18px; font-weight: bold; flex: 1; }
-  .btn { padding: 8px 16px; background: #1E40AF; color: #fff; border: 1px solid transparent; border-radius: 6px; cursor: pointer; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; }
+  .btn { padding: 8px 16px; background: #1E40AF; color: #fff; border: 1px solid transparent; border-radius: 6px; cursor: pointer; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
   .btn:hover { opacity: .85; }
-  .btn.danger { background: #7F1D1D; border-color: #7F1D1D; }
+  .btn.danger { background: #991B1B; border-color: #991B1B; }
+  .btn.warning { background: #B45309; border-color: #B45309; }
   .btn.success { background: #1B7A3D; border-color: #1B7A3D; }
   .tabs { display: flex; background: #1F2937; border-bottom: 1px solid #374151; }
   .tab { padding: 14px 24px; cursor: pointer; font-size: 14px; color: #9CA3AF; border-bottom: 2px solid transparent; }
@@ -23,16 +24,48 @@
   .table th { text-align: left; padding: 8px; color: #9CA3AF; border-bottom: 1px solid #374151; cursor: pointer; user-select: none; }
   .table th:hover { color: #fff; }
   .table td { padding: 8px; border-bottom: 1px solid #1F2937; }
-  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; max-width: 560px; margin: 0 auto; }
-  .locker { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 40px; border-radius: 3px; font-size: 12px; font-weight: bold; cursor: pointer; border: 2px solid transparent; }
+  
+  /* Сетка ячеек */
+  .grid-4 { 
+    display: grid; 
+    grid-template-columns: repeat(4, 1fr); 
+    gap: 4px; 
+    max-width: 580px; 
+    margin: 0 auto; 
+    grid-auto-rows: 44px; /* Фиксированная высота ряда для идеального вида */
+  }
+  
+  .locker { 
+    display: flex; flex-direction: column; 
+    align-items: center; justify-content: center; 
+    border-radius: 3px; 
+    font-size: 12px; font-weight: bold; 
+    cursor: pointer; 
+    border: 2px solid transparent; 
+    text-align: center;
+    transition: transform 0.1s;
+    overflow: hidden;
+  }
+  .locker:hover { transform: scale(1.02); }
+  .locker small { font-size: 9px; font-weight: normal; opacity: 0.8; margin-top: 2px; }
+  
+  /* Цвета статусов */
   .locker.free { background: #334155; }
   .locker.taken { background: #1E40AF; }
-  .locker.service { background: #B45309; }
+  .locker.service { background: #C2410C; font-size: 13px; } /* Оранжевый */
   .locker.faulty { background: #7F1D1D; }
-  /* Подсветка выбранной ячейки */
+  
+  /* Подсветка выбранной */
   .locker.selected { border-color: #F59E0B; box-shadow: 0 0 0 2px #F59E0B; z-index: 2; }
-  /* Если сервисная неисправна, делаем красную рамку */
+  
+  /* Если сервисная неисправна */
   .locker.service.faulty { border-color: #EF4444; background: #7F1D1D; }
+  
+  /* Легенда */
+  .legend { display: flex; gap: 16px; font-size: 12px; color: #9CA3AF; margin-top: 12px; align-items: center; flex-wrap: wrap; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { display: inline-block; width: 14px; height: 14px; border-radius: 3px; }
+
   .hidden { display: none !important; }
   .log-box { background: #111827; color: #10B981; font-family: monospace; padding: 15px; border-radius: 6px; white-space: pre-wrap; font-size: 13px; height: 500px; overflow-y: auto; border: 1px solid #374151; }
 </style>
@@ -61,6 +94,7 @@
     </div>
     <div class="content">
       
+      <!-- СОТРУДНИКИ -->
       <div id="tab-emp" class="tab-panel">
         <div class="panel" style="display:grid; grid-template-columns: 400px 1fr; gap:16px;">
           <div>
@@ -85,14 +119,27 @@
         </div>
       </div>
 
+      <!-- ЯЧЕЙКИ -->
       <div id="tab-lockers" class="tab-panel hidden">
         <div class="panel" style="display:grid; grid-template-columns: 1fr 360px; gap:16px;">
           <div>
-            <div style="margin-bottom:15px;">
-              <button class="btn" style="background:#B45309" onclick="openServiceConfirm()">⚙ Открыть сервисные</button>
+            <div style="display:flex; gap:8px; margin-bottom:15px;">
+              <button class="btn warning" onclick="openServiceConfirm()">⚙ Открыть сервисные</button>
               <button class="btn danger" onclick="openAllConfirm()">⚠ Открыть ВСЁ</button>
             </div>
-            <div class="grid-4" id="lockerGrid"></div>
+            
+            <!-- ЛЕГЕНДА -->
+            <div class="legend">
+              <span><i style="background:#334155"></i> свободна</span>
+              <span><i style="background:#1E40AF"></i> занята</span>
+              <span><i style="background:#C2410C"></i> сервисная</span>
+              <span><i style="background:#7F1D1D"></i> неисправна</span>
+              <span><i style="background:#F59E0B"></i> выбрана</span>
+            </div>
+
+            <div style="margin-top: 20px;">
+              <div class="grid-4" id="lockerGrid"></div>
+            </div>
           </div>
           <div id="lockerInfo" style="background:#111827; border-radius:8px; padding:16px;">
             <p style="color:#6B7280; text-align:center; margin-top:40px;">Выберите ячейку</p>
@@ -100,6 +147,7 @@
         </div>
       </div>
 
+      <!-- МЕТКИ -->
       <div id="tab-tags" class="tab-panel hidden">
         <div class="panel">
           <h3>Все зарегистрированные метки</h3>
@@ -110,6 +158,7 @@
         </div>
       </div>
 
+      <!-- ЖУРНАЛ -->
       <div id="tab-log" class="tab-panel hidden">
         <div class="panel">
           <h3>Журнал событий</h3>
@@ -120,6 +169,7 @@
         </div>
       </div>
 
+      <!-- СИСТЕМНЫЙ ЛОГ -->
       <div id="tab-syslog" class="tab-panel hidden">
         <div class="panel">
           <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
@@ -130,6 +180,7 @@
         </div>
       </div>
 
+      <!-- НАСТРОЙКИ -->
       <div id="tab-settings" class="tab-panel hidden">
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
           <div class="panel">
@@ -160,7 +211,7 @@
               Ячейки, в которых находится оборудование. Недоступны для сотрудников.
             </p>
             <div style="margin-top:12px">
-              <button class="btn" style="background:#B45309" onclick="openServiceConfig()">Настроить сервисные ячейки</button>
+              <button class="btn warning" onclick="openServiceConfig()">Настроить сервисные ячейки</button>
             </div>
           </div>
         </div>
@@ -192,9 +243,7 @@
   let selectedEmployee = null;
   let selectedLocker = null;
   let serviceLockerIds = [61, 62];
-  
-  // Стейт сортировки
-  let sortField = 'name'; // 'name' | 'locker'
+  let sortField = 'name';
   let sortAsc = true;
 
   async function api(path, method = 'GET', body = null) {
@@ -256,7 +305,6 @@
   }
 
   function renderEmployees() {
-    // Иконки
     document.getElementById('icon-name').textContent = sortField === 'name' ? (sortAsc ? '▲' : '▼') : '⇅';
     document.getElementById('icon-locker').textContent = sortField === 'locker' ? (sortAsc ? '▲' : '▼') : '⇅';
 
@@ -265,7 +313,6 @@
       e.fullName.toLowerCase().includes(q) || (e.lockerDisplay && e.lockerDisplay.includes(q))
     );
 
-    // Сортировка
     filtered.sort((a, b) => {
       let valA = sortField === 'name' ? a.fullName.toLowerCase() : (a.lockerDisplay === '—' ? 9999 : parseInt(a.lockerDisplay.replace('№ ','').trim()));
       let valB = sortField === 'name' ? b.fullName.toLowerCase() : (b.lockerDisplay === '—' ? 9999 : parseInt(b.lockerDisplay.replace('№ ','').trim()));
@@ -285,7 +332,7 @@
 
   function selectEmployee(id) {
     selectedEmployee = state.employees.find(e => e.id === id);
-    renderEmployees(); // Для подсветки выбранной строки
+    renderEmployees();
 
     const empTags = state.tags.filter(t => t.employeeId === id);
     const availableLockers = state.lockers.filter(l => !l.isService && (!l.employeeId || l.employeeId === id));
@@ -390,14 +437,22 @@
       if (l.isService && l.isFaulty) cls = 'service faulty';
       if (selectedLocker && selectedLocker.id === l.id) cls += ' selected';
       
-      const name = l.isService ? 'Сервис' : (l.ownerName ? l.ownerName.split(' ')[0] : 'своб');
-      return `<div class="locker ${cls}" style="grid-column:${item.c}; grid-row:${item.r} / span ${item.s};" onclick="selectLocker(${l.id})">${l.id}<br><small style="font-size:9px;font-weight:normal">${name}</small></div>`;
+      // Текст внутри ячейки
+      let innerHtml = '';
+      if (l.isService) {
+        innerHtml = `<div>Сервисная</div>`;
+      } else {
+        const name = l.ownerName ? l.ownerName.split(' ')[0] : 'свободна';
+        innerHtml = `<div>${l.id}</div><small>${name}</small>`;
+      }
+
+      return `<div class="locker ${cls}" style="grid-column:${item.c}; grid-row:${item.r} / span ${item.s};" onclick="selectLocker(${l.id})">${innerHtml}</div>`;
     }).join('');
   }
 
   function selectLocker(id) {
     selectedLocker = state.lockers.find(l => l.id === id);
-    renderLockers(); // Вызываем сразу для подсветки
+    renderLockers();
     const l = selectedLocker;
 
     let ownerControl = '';
@@ -587,7 +642,7 @@
       <p>Открыть ${svc.length} ячейки оборудования?</p>
       <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:20px">
         <button class="btn" onclick="hideOverlay()">Отмена</button>
-        <button class="btn" style="background:#B45309" onclick="hideOverlay(); startBulk([${svc.map(l=>l.id)}])">Открыть</button>
+        <button class="btn warning" onclick="hideOverlay(); startBulk([${svc.map(l=>l.id)}])">Открыть</button>
       </div>
     `);
   }
