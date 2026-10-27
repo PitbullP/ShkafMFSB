@@ -14,7 +14,6 @@ public class WebServer
     private readonly Database _db;
     private readonly Hardware _hw;
     
-    // Свойство для хранения текущего рабочего порта
     public string Port { get; private set; } = "50000"; 
 
     private readonly JsonSerializerOptions _jsonOptions = new() 
@@ -31,12 +30,9 @@ public class WebServer
     public void Start()
     {
         bool started = false;
-        
-        // Берем порт из appsettings.json
         int startPort = _hw.Settings.Web.Port;
-        if (startPort <= 0) startPort = 50000; // Страховка, если в конфиге 0 или пусто
+        if (startPort <= 0) startPort = 50000;
         
-        // Пытаемся запуститься на указанном порту. Если занят - ищем следующий (+1, +2...)
         for (int p = startPort; p <= startPort + 20; p++)
         {
             try
@@ -51,18 +47,12 @@ public class WebServer
                 Logger.Log($"Веб-сервер успешно запущен на порту {Port}");
                 break;
             }
-            catch (Exception ex)
-            {
-                Logger.Log($"Порт {p} занят или недоступен. Пробуем следующий... ({ex.Message})");
-            }
+            catch { }
         }
 
         if (!started)
         {
-            Logger.LogError("WebServer.Start", new Exception($"Не удалось найти свободный порт (диапазон {startPort}-{startPort + 20})."));
-            MessageBox.Show($"Не удалось запустить веб-сервер. Все порты заняты.\n" +
-                            "Попробуйте изменить порт в файле appsettings.json.",
-                            "Ошибка веб-сервера", MessageBoxButton.OK, MessageBoxImage.Error);
+            Logger.Log("Не удалось запустить веб-сервер.");
             return;
         }
         
@@ -75,7 +65,7 @@ public class WebServer
                     var ctx = await _listener.GetContextAsync();
                     _ = Task.Run(() => HandleRequest(ctx));
                 }
-                catch { /* Ignore */ }
+                catch { }
             }
         });
     }
@@ -107,18 +97,21 @@ public class WebServer
                         }, _jsonOptions);
                         break;
 
-                    case "/api/system-log":
-                        string logPath = Path.Combine(Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory, "app.log");
-                        string logText = File.Exists(logPath) ? File.ReadAllText(logPath) : "Лог пуст.";
-                        json = JsonSerializer.Serialize(new { log = logText }, _jsonOptions);
-                        break;
-
-                    case "/api/employee":
+                    case "/api/employee/add":
                         if (req.HttpMethod == "POST")
                         {
                             using var reader = new StreamReader(req.InputStream);
                             var body = JsonSerializer.Deserialize<JsonElement>(await reader.ReadToEndAsync());
                             _db.AddEmployee(body.GetProperty("name").GetString()!);
+                        }
+                        break;
+
+                    case "/api/employee/update":
+                        if (req.HttpMethod == "POST")
+                        {
+                            using var reader = new StreamReader(req.InputStream);
+                            var body = JsonSerializer.Deserialize<JsonElement>(await reader.ReadToEndAsync());
+                            _db.UpdateEmployee(body.GetProperty("id").GetInt32(), body.GetProperty("name").GetString()!);
                         }
                         break;
 
@@ -133,12 +126,48 @@ public class WebServer
                         }
                         break;
 
+                    case "/api/tag/add":
+                        if (req.HttpMethod == "POST")
+                        {
+                            using var reader = new StreamReader(req.InputStream);
+                            var body = JsonSerializer.Deserialize<JsonElement>(await reader.ReadToEndAsync());
+                            _db.AddTag(body.GetProperty("uid").GetString()!, body.GetProperty("employeeId").GetInt32());
+                        }
+                        break;
+
+                    case "/api/tag/delete":
+                        if (req.HttpMethod == "POST")
+                        {
+                            using var reader = new StreamReader(req.InputStream);
+                            var body = JsonSerializer.Deserialize<JsonElement>(await reader.ReadToEndAsync());
+                            _db.DeleteTag(body.GetProperty("uid").GetString()!);
+                        }
+                        break;
+
                     case "/api/hardware":
                         if (req.HttpMethod == "POST")
                         {
                             using var reader = new StreamReader(req.InputStream);
                             var items = JsonSerializer.Deserialize<List<Locker>>(await reader.ReadToEndAsync(), _jsonOptions);
                             foreach (var item in items!) _db.UpdateHardware(item.Id, item.ModuleId, item.ChannelId);
+                        }
+                        break;
+
+                    case "/api/locker/faulty":
+                        if (req.HttpMethod == "POST")
+                        {
+                            using var reader = new StreamReader(req.InputStream);
+                            var body = JsonSerializer.Deserialize<JsonElement>(await reader.ReadToEndAsync());
+                            _db.SetFaulty(body.GetProperty("id").GetInt32(), body.GetProperty("faulty").GetBoolean());
+                        }
+                        break;
+
+                    case "/api/locker/service":
+                        if (req.HttpMethod == "POST")
+                        {
+                            using var reader = new StreamReader(req.InputStream);
+                            var body = JsonSerializer.Deserialize<JsonElement>(await reader.ReadToEndAsync());
+                            _db.SetServiceLockers(body.GetProperty("id1").GetInt32(), body.GetProperty("id2").GetInt32());
                         }
                         break;
 
