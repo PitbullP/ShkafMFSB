@@ -1,0 +1,27 @@
+# Git хранит и отдаёт LF для текстовых файлов независимо от ОС.
+# Это гарантирует одинаковый line endings в dev (Linux) и CI (Windows),
+# чтобы dotnet format видел один и тот же стиль.
+
+* text=auto eol=lf
+
+*.cs       text eol=lf
+*.csproj   text eol=lf
+*.sln      text eol=lf
+*.props    text eol=lf
+*.targets  text eol=lf
+*.yml      text eol=lf
+*.yaml     text eol=lf
+*.json     text eol=lf
+*.xml      text eol=lf
+*.md       text eol=lf
+*.html     text eol=lf
+.editorconfig text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+
+# Бинарные — не трогаем
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.db binary
