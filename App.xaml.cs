@@ -14,7 +14,7 @@ public partial class App : Application
         AppDomain.CurrentDomain.UnhandledException += (s, args) =>
         {
             var ex = args.ExceptionObject as Exception;
-            Logger.LogError("AppDomain", ex ?? new Exception("Неизвестная ошибка"));
+            Logger.LogError("AppDomain", ex ?? new InvalidOperationException("Неизвестная ошибка в AppDomain"));
         };
 
         DispatcherUnhandledException += (s, args) =>

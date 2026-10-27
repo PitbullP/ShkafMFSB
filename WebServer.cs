@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Net;
@@ -35,7 +36,7 @@ public class WebServer : IDisposable
                 _listener.Prefixes.Add($"http://127.0.0.1:{p}/");
                 _listener.Prefixes.Add($"http://localhost:{p}/");
                 _listener.Start();
-                Port = p.ToString();
+                Port = p.ToString(CultureInfo.InvariantCulture);
                 started = true;
                 Logger.Log($"Веб-сервер запущен на порту {Port}");
                 break;

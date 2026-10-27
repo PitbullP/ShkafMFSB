@@ -7,7 +7,7 @@ namespace ShkafMFSB;
 
 public partial class KioskWindow : Window
 {
-    private int _adminClicks = 0;
+    private int _adminClicks;
     private DateTime _firstClickTime;
     private string _lastUid = "";
     private DateTime _lastScanTime = DateTime.MinValue;
