@@ -107,9 +107,11 @@ public partial class KioskWindow : Window
         {
             _adminClicks = 0;
             
-            // Сворачиваем киоск и открываем браузер на порту 54321
+            // Берем порт, который выбрал сервер
+            string url = $"http://localhost:{App.Server.Port}";
+            
             this.WindowState = WindowState.Minimized;
-            Process.Start(new ProcessStartInfo("http://localhost:54321") { UseShellExecute = true }); 
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); 
         }
     }
 }
