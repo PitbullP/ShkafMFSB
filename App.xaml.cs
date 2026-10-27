@@ -27,7 +27,7 @@ public partial class App : Application
         {
             Logger.Log("=== ЗАПУСК ПРОГРАММЫ ===");
             base.OnStartup(e);
-            
+
             var cfg = ConfigExtensions.Load();
             Hw = cfg.DemoMode ? new DemoHardware(cfg) : new RealHardware(cfg);
             Logger.Log(cfg.DemoMode ? "Режим: ДЕМО" : "Режим: РЕАЛЬНОЕ оборудование");

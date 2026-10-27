@@ -1,9 +1,9 @@
-using NModbus;
-using NModbus.Serial;
-using PCSC;
 using System.IO;
 using System.IO.Ports;
 using System.Text.Json;
+using NModbus;
+using NModbus.Serial;
+using PCSC;
 
 namespace ShkafMFSB;
 
@@ -109,7 +109,7 @@ public class RealHardware : IHardware
         cts.Token.Register(() => _scanTcs.TrySetCanceled());
         return _scanTcs.Task;
     }
-    
+
     public void StartRfid()
     {
         Task.Run(() =>
@@ -135,7 +135,7 @@ public class RealHardware : IHardware
                         if (len > 0 && recv[len] == 0x90)
                         {
                             var uid = Convert.ToHexString(recv[..len]);
-                            
+
                             if (_scanTcs != null)
                             {
                                 _scanTcs.TrySetResult(uid);

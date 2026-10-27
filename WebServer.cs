@@ -1,12 +1,12 @@
-using System.Globalization;
 using System.Collections.Concurrent;
-using System.Security.Cryptography;
-using System.Net;
+using System.Diagnostics;
+using System.Globalization;
 using System.IO;
+using System.Net;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Windows;
-using System.Diagnostics;
 
 namespace ShkafMFSB;
 
@@ -16,7 +16,7 @@ public class WebServer : IDisposable
     private bool _disposed;
     private readonly Database _db;
     private readonly IHardware _hw;
-    public string Port { get; private set; } = "50000"; 
+    public string Port { get; private set; } = "50000";
     private readonly JsonSerializerOptions _jsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private readonly TokenStore _tokens = new(TimeSpan.FromMinutes(30));
 
@@ -27,7 +27,7 @@ public class WebServer : IDisposable
         bool started = false;
         int startPort = _hw.Settings.Web.Port;
         if (startPort <= 0) startPort = 50000;
-        
+
         for (int p = startPort; p <= startPort + 20; p++)
         {
             try
@@ -40,11 +40,12 @@ public class WebServer : IDisposable
                 started = true;
                 Logger.Log($"Веб-сервер запущен на порту {Port}");
                 break;
-            } catch (Exception ex) { Logger.LogError($"WebServer.Start port={p}", ex); }
+            }
+            catch (Exception ex) { Logger.LogError($"WebServer.Start port={p}", ex); }
         }
 
         if (!started) return;
-        
+
         Task.Run(async () =>
         {
             while (_listener.IsListening)
@@ -157,105 +158,105 @@ public class WebServer : IDisposable
                 int status = 200;
                 try
                 {
-                if (reqPath != "/api/verify-pin" && !IsTokenValid(req))
-                    throw new UnauthorizedException();
-                switch (reqPath)
-                {
-                    case "/api/data":
-                        json = JsonSerializer.Serialize(new { employees = _db.GetEmployees(), lockers = _db.GetLockers(), tags = _db.GetTags(), logs = _db.GetLogs() }, _jsonOptions);
-                        break;
+                    if (reqPath != "/api/verify-pin" && !IsTokenValid(req))
+                        throw new UnauthorizedException();
+                    switch (reqPath)
+                    {
+                        case "/api/data":
+                            json = JsonSerializer.Serialize(new { employees = _db.GetEmployees(), lockers = _db.GetLockers(), tags = _db.GetTags(), logs = _db.GetLogs() }, _jsonOptions);
+                            break;
 
-                    case "/api/system-log":
-                        // ИСПРАВЛЕНО: Берем путь из реального расположения EXE
-                        string logPath = Path.Combine(Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory, "app.log");
-                        string logText = File.Exists(logPath) ? File.ReadAllText(logPath) : "Файл app.log пуст или не найден.";
-                        json = JsonSerializer.Serialize(new { log = logText }, _jsonOptions);
-                        break;
+                        case "/api/system-log":
+                            // ИСПРАВЛЕНО: Берем путь из реального расположения EXE
+                            string logPath = Path.Combine(Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory, "app.log");
+                            string logText = File.Exists(logPath) ? File.ReadAllText(logPath) : "Файл app.log пуст или не найден.";
+                            json = JsonSerializer.Serialize(new { log = logText }, _jsonOptions);
+                            break;
 
-                    case "/api/verify-pin":
-                        {
-                            var body = await ReadJsonBodyAsync(req);
-                            bool ok = _db.VerifyPin(V.Str(body, "pin", 0, 128));
-                            if (ok)
+                        case "/api/verify-pin":
                             {
-                                var token = _tokens.Issue();
-                                json = JsonSerializer.Serialize(new { success = ok, token }, _jsonOptions);
+                                var body = await ReadJsonBodyAsync(req);
+                                bool ok = _db.VerifyPin(V.Str(body, "pin", 0, 128));
+                                if (ok)
+                                {
+                                    var token = _tokens.Issue();
+                                    json = JsonSerializer.Serialize(new { success = ok, token }, _jsonOptions);
+                                }
+                                else
+                                {
+                                    json = JsonSerializer.Serialize(new { success = ok }, _jsonOptions);
+                                }
                             }
-                            else
+                            break;
+
+                        case "/api/settings/pin":
                             {
-                                json = JsonSerializer.Serialize(new { success = ok }, _jsonOptions);
+                                var body = await ReadJsonBodyAsync(req);
+                                _db.UpdatePin(V.Str(body, "pin", 4, 128));
                             }
-                        }
-                        break;
+                            break;
 
-                    case "/api/settings/pin":
-                        {
-                            var body = await ReadJsonBodyAsync(req);
-                            _db.UpdatePin(V.Str(body, "pin", 4, 128));
-                        }
-                        break;
+                        case "/api/backup":
+                            string backupFile = _db.BackupDb();
+                            json = JsonSerializer.Serialize(new { path = backupFile }, _jsonOptions);
+                            break;
 
-                    case "/api/backup":
-                        string backupFile = _db.BackupDb();
-                        json = JsonSerializer.Serialize(new { path = backupFile }, _jsonOptions);
-                        break;
-
-                    case "/api/employee/add":
-                    case "/api/employee/update":
-                    case "/api/assign":
-                    case "/api/tag/add":
-                    case "/api/tag/delete":
-                    case "/api/locker/faulty":
-                    case "/api/locker/service":
-                    case "/api/open":
-                        {
-                            var body = await ReadJsonBodyAsync(req);
-                            if (reqPath == "/api/employee/add") _db.AddEmployee(V.Str(body, "name", 1, 200));
-                            if (reqPath == "/api/employee/update") _db.UpdateEmployee(V.Number(body, "id", 1), V.Str(body, "name", 1, 200));
-                            if (reqPath == "/api/assign") _db.AssignLocker(V.Number(body, "lockerId", 1), V.NullableNumber(body, "employeeId", 1));
-                            if (reqPath == "/api/tag/add") _db.AddTag(V.Str(body, "uid", 4, 64), V.Number(body, "employeeId", 1));
-                            if (reqPath == "/api/tag/delete") _db.DeleteTag(V.Str(body, "uid", 4, 64));
-                            if (reqPath == "/api/locker/faulty") _db.SetFaulty(V.Number(body, "id", 1), V.Bool(body, "faulty"));
-                            if (reqPath == "/api/locker/service") _db.SetServiceLockers(V.Number(body, "id1", 1), V.Number(body, "id2", 1));
-                            if (reqPath == "/api/open") { int lid = V.Number(body, "lockerId", 1); var l = _db.GetLockers().FirstOrDefault(x => x.Id == lid); if (l != null) { bool ok = await _hw.PulseRelayAsync(l.ModuleId, l.ChannelId); if (!ok) { status = 500; json = JsonSerializer.Serialize(new { error = "Не удалось открыть ячейку" }, _jsonOptions); } } }
-                        }
-                        break;
-
-                    case "/api/hardware":
-                        {
-                            using var reader = new StreamReader(req.InputStream, req.ContentEncoding ?? Encoding.UTF8);
-                            var rawText = await reader.ReadToEndAsync();
-                            if (string.IsNullOrWhiteSpace(rawText))
-                                throw new ValidationException("Тело запроса пустое");
-                            List<Locker>? items;
-                            try { items = JsonSerializer.Deserialize<List<Locker>>(rawText, _jsonOptions); }
-                            catch (JsonException jex) { throw new ValidationException("Некорректный JSON: " + jex.Message); }
-                            if (items == null) throw new ValidationException("Список не может быть null");
-                            foreach (var item in items)
+                        case "/api/employee/add":
+                        case "/api/employee/update":
+                        case "/api/assign":
+                        case "/api/tag/add":
+                        case "/api/tag/delete":
+                        case "/api/locker/faulty":
+                        case "/api/locker/service":
+                        case "/api/open":
                             {
-                                if (item.Id <= 0) throw new ValidationException("Id ячейки должен быть > 0");
-                                _db.UpdateHardware(item.Id, item.ModuleId, item.ChannelId);
+                                var body = await ReadJsonBodyAsync(req);
+                                if (reqPath == "/api/employee/add") _db.AddEmployee(V.Str(body, "name", 1, 200));
+                                if (reqPath == "/api/employee/update") _db.UpdateEmployee(V.Number(body, "id", 1), V.Str(body, "name", 1, 200));
+                                if (reqPath == "/api/assign") _db.AssignLocker(V.Number(body, "lockerId", 1), V.NullableNumber(body, "employeeId", 1));
+                                if (reqPath == "/api/tag/add") _db.AddTag(V.Str(body, "uid", 4, 64), V.Number(body, "employeeId", 1));
+                                if (reqPath == "/api/tag/delete") _db.DeleteTag(V.Str(body, "uid", 4, 64));
+                                if (reqPath == "/api/locker/faulty") _db.SetFaulty(V.Number(body, "id", 1), V.Bool(body, "faulty"));
+                                if (reqPath == "/api/locker/service") _db.SetServiceLockers(V.Number(body, "id1", 1), V.Number(body, "id2", 1));
+                                if (reqPath == "/api/open") { int lid = V.Number(body, "lockerId", 1); var l = _db.GetLockers().FirstOrDefault(x => x.Id == lid); if (l != null) { bool ok = await _hw.PulseRelayAsync(l.ModuleId, l.ChannelId); if (!ok) { status = 500; json = JsonSerializer.Serialize(new { error = "Не удалось открыть ячейку" }, _jsonOptions); } } }
                             }
-                        }
-                        break;
+                            break;
 
-                    case "/api/tag/scan":
-                        try
-                        {
-                            var uid = await _hw.WaitForNextTagAsync(15000);
-                            json = JsonSerializer.Serialize(new { uid }, _jsonOptions);
-                        }
-                        catch (Exception ex) { Logger.Log("TagScan timeout: " + ex.Message); json = JsonSerializer.Serialize(new { error = "Timeout" }, _jsonOptions); }
-                        break;
+                        case "/api/hardware":
+                            {
+                                using var reader = new StreamReader(req.InputStream, req.ContentEncoding ?? Encoding.UTF8);
+                                var rawText = await reader.ReadToEndAsync();
+                                if (string.IsNullOrWhiteSpace(rawText))
+                                    throw new ValidationException("Тело запроса пустое");
+                                List<Locker>? items;
+                                try { items = JsonSerializer.Deserialize<List<Locker>>(rawText, _jsonOptions); }
+                                catch (JsonException jex) { throw new ValidationException("Некорректный JSON: " + jex.Message); }
+                                if (items == null) throw new ValidationException("Список не может быть null");
+                                foreach (var item in items)
+                                {
+                                    if (item.Id <= 0) throw new ValidationException("Id ячейки должен быть > 0");
+                                    _db.UpdateHardware(item.Id, item.ModuleId, item.ChannelId);
+                                }
+                            }
+                            break;
 
-                    case "/api/restore-kiosk":
-                        App.MainKiosk?.Dispatcher.Invoke(() =>
-                        {
-                            App.MainKiosk.WindowState = WindowState.Maximized;
-                            if (!App.Hw.Settings.DemoMode) { App.MainKiosk.Topmost = true; App.MainKiosk.Cursor = System.Windows.Input.Cursors.None; }
-                        });
-                        break;
-                }
+                        case "/api/tag/scan":
+                            try
+                            {
+                                var uid = await _hw.WaitForNextTagAsync(15000);
+                                json = JsonSerializer.Serialize(new { uid }, _jsonOptions);
+                            }
+                            catch (Exception ex) { Logger.Log("TagScan timeout: " + ex.Message); json = JsonSerializer.Serialize(new { error = "Timeout" }, _jsonOptions); }
+                            break;
+
+                        case "/api/restore-kiosk":
+                            App.MainKiosk?.Dispatcher.Invoke(() =>
+                            {
+                                App.MainKiosk.WindowState = WindowState.Maximized;
+                                if (!App.Hw.Settings.DemoMode) { App.MainKiosk.Topmost = true; App.MainKiosk.Cursor = System.Windows.Input.Cursors.None; }
+                            });
+                            break;
+                    }
                 }
                 catch (UnauthorizedException)
                 {

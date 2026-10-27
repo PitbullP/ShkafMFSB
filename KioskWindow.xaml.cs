@@ -40,7 +40,7 @@ public partial class KioskWindow : Window
         {
             var employees = App.Db.GetEmployees();
             var emp = employees.FirstOrDefault(e => e.Id == tag.EmployeeId);
-            
+
             if (emp == null)
             {
                 App.Db.AddLog(tag.EmployeeId, null, "DENIED_NO_EMPLOYEE", uid);
@@ -104,7 +104,7 @@ public partial class KioskWindow : Window
             _adminClicks = 0;
             string url = $"http://localhost:{App.Server.Port}";
             this.WindowState = WindowState.Minimized;
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); 
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
         }
     }
 }
