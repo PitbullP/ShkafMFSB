@@ -30,6 +30,7 @@
   .locker.faulty { background: #7F1D1D; }
   .locker.selected { border-color: #F59E0B; }
   .hidden { display: none !important; }
+  .log-box { background: #111827; color: #10B981; font-family: monospace; padding: 15px; border-radius: 6px; white-space: pre-wrap; font-size: 13px; height: 500px; overflow-y: auto; border: 1px solid #374151; }
 </style>
 </head>
 <body>
@@ -50,7 +51,8 @@
       <div class="tab active" onclick="switchTab('emp', this)">Сотрудники</div>
       <div class="tab" onclick="switchTab('lockers', this)">Ячейки</div>
       <div class="tab" onclick="switchTab('tags', this)">Метки</div>
-      <div class="tab" onclick="switchTab('log', this)">Журнал</div>
+      <div class="tab" onclick="switchTab('log', this)">Журнал событий</div>
+      <div class="tab" onclick="switchTab('syslog', this)">Системный лог</div>
       <div class="tab" onclick="switchTab('settings', this)">Настройки</div>
     </div>
     <div class="content">
@@ -59,7 +61,7 @@
         <div class="panel" style="display:grid; grid-template-columns: 400px 1fr; gap:16px;">
           <div>
             <div style="display:flex; gap:8px; margin-bottom:10px;">
-              <input type="text" id="searchBox" class="field" style="margin:0;" placeholder="Поиск по ФИО..." oninput="renderEmployees()">
+              <input type="text" id="searchBox" class="field" style="margin:0;" placeholder="Поиск по ФИО или № ячейки..." oninput="renderEmployees()">
               <button class="btn primary" onclick="openNewUser()">+ Добавить</button>
             </div>
             <table class="table">
@@ -80,7 +82,7 @@
               <button class="btn" style="background:#B45309" onclick="openServiceConfirm()">⚙ Открыть сервисные</button>
               <button class="btn danger" onclick="openAllConfirm()">⚠ Открыть ВСЁ</button>
             </div>
-            <div id="lockerGrid" class="grid-4"></div>
+            <div class="grid-4" id="lockerGrid"></div>
           </div>
           <div id="lockerInfo" style="background:#111827; border-radius:8px; padding:16px;">
             <p style="color:#6B7280; text-align:center; margin-top:40px;">Выберите ячейку</p>
@@ -108,20 +110,67 @@
         </div>
       </div>
 
-      <div id="tab-settings" class="tab-panel hidden">
+      <div id="tab-syslog" class="tab-panel hidden">
         <div class="panel">
-          <h3>Привязка оборудования</h3>
-          <table class="table">
-            <thead><tr><th>Ячейка</th><th>Модуль</th><th>Канал</th><th>Тест</th></tr></thead>
-            <tbody id="hardwareList"></tbody>
-          </table>
-          <button class="btn success" style="margin-top:15px;" onclick="saveHardware()">Сохранить привязку</button>
-        </div>
-        <div class="panel" style="margin-top:16px;">
-          <h3>Сервисные ячейки</h3>
-          <button class="btn" style="background:#B45309; margin-top:10px;" onclick="openServiceConfig()">Настроить сервисные</button>
+          <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+            <h3>Файл app.log</h3>
+            <button class="btn" onclick="loadSystemLog()">Обновить</button>
+          </div>
+          <div id="syslogText" class="log-box">Загрузка...</div>
         </div>
       </div>
+
+      <div id="tab-settings" class="tab-panel hidden">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+          <div class="panel">
+            <h3>Системные настройки</h3>
+            <div style="display:flex;gap:8px;align-items:center;margin:12px 0">
+              <label style="color:#9CA3AF;font-size:13px">COM-порт реле:</label>
+              <input class="field" value="COM3" style="max-width:100px; margin:0;">
+              <button class="btn">Проверить связь</button>
+            </div>
+            <p style="color:#10B981;font-size:13px;margin:8px 0 20px;">✅ Оба модуля отвечают</p>
+            
+            <h4 style="margin-top:20px">Смена PIN</h4>
+            <div style="display:flex;gap:8px;align-items:center;margin:12px 0">
+              <label style="color:#9CA3AF;font-size:13px">Новый PIN:</label>
+              <input class="field" type="password" style="max-width:100px; margin:0;">
+            </div>
+            <button class="btn primary" style="margin-top:8px">Сменить PIN</button>
+
+            <h4 style="margin-top:20px">Резервное копирование</h4>
+            <div style="display:flex; gap:8px; margin-top:12px">
+              <button class="btn">Создать копию БД</button>
+              <button class="btn">Восстановить</button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>Сервисные ячейки</h3>
+            <p style="color:#9CA3AF;font-size:13px;margin:8px 0">
+              Ячейки, в которых находится оборудование. Недоступны для сотрудников.
+            </p>
+            <div style="margin-top:12px">
+              <button class="btn" style="background:#B45309" onclick="openServiceConfig()">Настроить сервисные ячейки</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:16px;">
+          <h3>Привязка оборудования (Реле)</h3>
+          <p style="color:#9CA3AF;font-size:13px;margin-bottom:12px;">Настройте соответствие физических модулей и каналов логическим номерам ячеек.</p>
+          <div style="max-height: 300px; overflow-y: auto; border: 1px solid #374151; border-radius: 6px;">
+            <table class="table" style="margin:0;">
+              <thead style="position: sticky; top: 0; background: #1F2937; z-index:10;">
+                <tr><th>Ячейка</th><th>Модуль (1-2)</th><th>Канал (0-31)</th><th>Действие</th></tr>
+              </thead>
+              <tbody id="hardwareList"></tbody>
+            </table>
+          </div>
+          <button class="btn success" style="margin-top:15px;" onclick="saveHardware()">Сохранить привязку</button>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -172,6 +221,14 @@
     document.querySelectorAll('.tab-panel').forEach(t => t.classList.add('hidden'));
     el.classList.add('active');
     document.getElementById('tab-' + id).classList.remove('hidden');
+    if (id === 'syslog') loadSystemLog();
+  }
+
+  async function loadSystemLog() {
+    const res = await api('system-log');
+    const box = document.getElementById('syslogText');
+    box.textContent = res.log;
+    box.scrollTop = box.scrollHeight;
   }
 
   // ════════ СОТРУДНИКИ ════════
@@ -235,23 +292,11 @@
 
     if (!newName) { alert('ФИО не может быть пустым'); return; }
 
-    if (newLockerId) {
-      const targetLocker = state.lockers.find(l => l.id === newLockerId);
-      if (targetLocker.isService) { alert('Сервисную ячейку нельзя назначить'); return; }
-      if (targetLocker.employeeId && targetLocker.employeeId !== selectedEmployee.id) {
-        alert(`Ячейка № ${targetLocker.id} уже занята.`); return;
-      }
-    }
-
-    // Обновляем ФИО
     await api('employee/update', 'POST', { id: selectedEmployee.id, name: newName });
     
-    // Обновляем ячейку
     if (selectedEmployee.lockerDisplay !== (newLockerId ? `№ ${newLockerId}` : '—')) {
-       // Освобождаем старую
        const oldLocker = state.lockers.find(l => l.employeeId === selectedEmployee.id);
        if (oldLocker) await api('assign', 'POST', { lockerId: oldLocker.id, employeeId: null });
-       // Назначаем новую
        if (newLockerId) await api('assign', 'POST', { lockerId: newLockerId, employeeId: selectedEmployee.id });
     }
 
@@ -349,18 +394,8 @@
       await api('assign', 'POST', { lockerId, employeeId: null });
     } else {
       const emp = state.employees.find(e => e.id === Number(empId));
-      if (emp.lockerDisplay !== '—' && emp.lockerDisplay !== `№ ${lockerId}`) {
-        alert(`${emp.fullName} уже закреплён за ячейкой ${emp.lockerDisplay}.`);
-        selectLocker(lockerId); return;
-      }
-      if (l.employeeId && l.employeeId !== emp.id) {
-        alert(`Ячейка № ${lockerId} уже занята.`);
-        selectLocker(lockerId); return;
-      }
-      // Освобождаем старую ячейку сотрудника
       const oldL = state.lockers.find(x => x.employeeId === emp.id);
       if (oldL) await api('assign', 'POST', { lockerId: oldL.id, employeeId: null });
-      
       await api('assign', 'POST', { lockerId, employeeId: emp.id });
     }
     loadData().then(() => selectLocker(lockerId));
@@ -385,7 +420,7 @@
 
   async function saveHardware() {
     await api('hardware', 'POST', state.lockers);
-    alert('Привязка сохранена в БД!');
+    alert('Привязка сохранена!');
   }
 
   // ════════ ОСТАЛЬНОЕ ════════
@@ -415,19 +450,49 @@
   function openBind() {
     showOverlay(`
       <h2>Привязка метки</h2>
-      <p style="color:#60A5FA; margin:10px 0">Приложите метку к считывателю…</p>
+      <p style="color:#9CA3AF; margin-bottom:10px">Введите UID вручную или отсканируйте</p>
+      <div style="display:flex; gap:8px">
+        <input id="manualUid" class="field" placeholder="UID метки" style="margin:0">
+        <button class="btn" id="scanBtn" onclick="scanTag()">Сканировать</button>
+      </div>
+      <div id="scanStatus" style="color:#60A5FA; font-size:13px; margin-top:10px; height:20px"></div>
       <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:20px">
         <button class="btn" onclick="hideOverlay()">Отмена</button>
+        <button class="btn primary" onclick="saveTag()">Привязать</button>
       </div>
     `);
-    setTimeout(async () => {
-      if (!document.getElementById('overlay').classList.contains('active')) return;
-      // Имитация: генерируем метку. В реальности здесь был бы запрос от сканера.
-      const newUid = 'NEW' + Math.floor(Math.random()*10000);
-      await api('tag/add', 'POST', { uid: newUid, employeeId: selectedEmployee.id });
-      hideOverlay(); 
-      loadData().then(() => selectEmployee(selectedEmployee.id));
-    }, 2000);
+  }
+
+  async function scanTag() {
+    const btn = document.getElementById('scanBtn');
+    const status = document.getElementById('scanStatus');
+    btn.disabled = true;
+    status.textContent = "Ожидание метки... поднесите карту к считывателю";
+    
+    try {
+      const res = await api('tag/scan');
+      if (res.uid) {
+        document.getElementById('manualUid').value = res.uid;
+        status.textContent = "Метка успешно считана!";
+        status.style.color = "#10B981";
+      } else {
+        status.textContent = "Таймаут. Метка не считана.";
+        status.style.color = "#EF4444";
+      }
+    } catch (e) {
+      status.textContent = "Ошибка сканирования.";
+      status.style.color = "#EF4444";
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function saveTag() {
+    const uid = document.getElementById('manualUid').value.trim();
+    if (!uid) return alert('Введите UID');
+    await api('tag/add', 'POST', { uid, employeeId: selectedEmployee.id });
+    hideOverlay();
+    loadData().then(() => selectEmployee(selectedEmployee.id));
   }
 
   function openServiceConfig() {
@@ -456,7 +521,6 @@
     const id1 = Number(document.getElementById('srvSelect1').value);
     const id2 = Number(document.getElementById('srvSelect2').value);
     if (id1 === id2) { alert('Выберите две разные ячейки'); return; }
-    
     await api('locker/service', 'POST', { id1, id2 });
     hideOverlay();
     loadData();
