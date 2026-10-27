@@ -5,7 +5,7 @@ namespace ShkafMFSB;
 public partial class App : Application
 {
     public static Database Db { get; private set; } = null!;
-    public static Hardware Hw { get; private set; } = null!;
+    public static IHardware Hw { get; private set; } = null!;
     public static WebServer Server { get; private set; } = null!;
     public static KioskWindow? MainKiosk { get; set; }
 
@@ -28,7 +28,9 @@ public partial class App : Application
             Logger.Log("=== ЗАПУСК ПРОГРАММЫ ===");
             base.OnStartup(e);
             
-            Hw = new Hardware();
+            var cfg = ConfigExtensions.Load();
+            Hw = cfg.DemoMode ? new DemoHardware(cfg) : new RealHardware(cfg);
+            Logger.Log(cfg.DemoMode ? "Режим: ДЕМО" : "Режим: РЕАЛЬНОЕ оборудование");
 
             Db = new Database();
             Db.Initialize(Hw.Settings.LockerConfig);

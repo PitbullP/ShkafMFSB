@@ -14,12 +14,12 @@ public class WebServer : IDisposable
     private readonly HttpListener _listener = new();
     private bool _disposed;
     private readonly Database _db;
-    private readonly Hardware _hw;
+    private readonly IHardware _hw;
     public string Port { get; private set; } = "50000"; 
     private readonly JsonSerializerOptions _jsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private readonly TokenStore _tokens = new(TimeSpan.FromMinutes(30));
 
-    public WebServer(Database db, Hardware hw) { _db = db; _hw = hw; }
+    public WebServer(Database db, IHardware hw) { _db = db; _hw = hw; }
 
     public void Start()
     {

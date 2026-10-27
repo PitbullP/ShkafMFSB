@@ -9,7 +9,7 @@ namespace ShkafMFSB;
 
 public class Config
 {
-    public bool DemoMode { get; set; } = true;
+    public bool DemoMode { get; set; }
     public ModbusConfig Modbus { get; set; } = new();
     public RfidConfig Rfid { get; set; } = new();
     public WebConfig Web { get; set; } = new();
@@ -27,25 +27,30 @@ public class LockerConfig
     public int Module1MaxCell { get; set; } = 32;        // ячейки 1..N — модуль 1, остальные — модуль 2
 }
 
-public class Hardware : IDisposable
+public static class ConfigExtensions
+{
+    public static Config Load(string path = "appsettings.json")
+    {
+        if (!File.Exists(path)) return new Config();
+        return JsonSerializer.Deserialize<Config>(File.ReadAllText(path)) ?? new Config();
+    }
+}
+
+public class RealHardware : IHardware
 {
     private IModbusMaster? _master;
     private SerialPort? _port;
-    public Config Settings { get; private set; } = new();
+    public Config Settings { get; }
 
     private TaskCompletionSource<string>? _scanTcs;
 
-    public Hardware()
+    public RealHardware(Config settings)
     {
-        if (File.Exists("appsettings.json"))
-        {
-            Settings = JsonSerializer.Deserialize<Config>(File.ReadAllText("appsettings.json")) ?? new Config();
-        }
+        Settings = settings;
     }
 
     public bool ConnectModbus()
     {
-        if (Settings.DemoMode) return true;
         try
         {
             _port = new SerialPort(Settings.Modbus.Port, Settings.Modbus.BaudRate, Parity.None, 8, StopBits.One);
@@ -58,13 +63,12 @@ public class Hardware : IDisposable
         catch (Exception ex) { Logger.LogError("Hardware.Connect (Modbus)", ex); return false; }
     }
 
-    public async Task<bool> PulseRelayAsync(int module, int channel, int pulseMs = 5000)
+    public async Task<bool> PulseRelayAsync(int moduleId, int channel, int pulseMs = 5000)
     {
-        if (Settings.DemoMode) { await Task.Delay(200); return true; }
         if (_master == null)
         {
             Logger.LogError("Hardware.PulseRelay (Modbus master не подключён)",
-                new InvalidOperationException($"module={module}, channel={channel}"));
+                new InvalidOperationException($"module={moduleId}, channel={channel}"));
             return false;
         }
 
@@ -77,16 +81,16 @@ public class Hardware : IDisposable
             {
                 await Task.Run(async () =>
                 {
-                    _master.WriteSingleCoil((byte)module, (ushort)channel, true);
+                    _master.WriteSingleCoil((byte)moduleId, (ushort)channel, true);
                     await Task.Delay(pulseMs);
-                    _master.WriteSingleCoil((byte)module, (ushort)channel, false);
+                    _master.WriteSingleCoil((byte)moduleId, (ushort)channel, false);
                 });
-                if (attempt > 1) Logger.Log($"Hardware.PulseRelay OK module={module} channel={channel} (попытка {attempt})");
+                if (attempt > 1) Logger.Log($"Hardware.PulseRelay OK module={moduleId} channel={channel} (попытка {attempt})");
                 return true;
             }
             catch (Exception ex)
             {
-                Logger.LogError($"Hardware.PulseRelay module={module} channel={channel} (попытка {attempt}/{maxAttempts})", ex);
+                Logger.LogError($"Hardware.PulseRelay module={moduleId} channel={channel} (попытка {attempt}/{maxAttempts})", ex);
                 if (attempt < maxAttempts)
                     await Task.Delay(backoffMs[attempt - 1]);
             }
@@ -99,13 +103,6 @@ public class Hardware : IDisposable
     // Метод для перехвата метки в админке
     public Task<string> WaitForNextTagAsync(int timeoutMs = 15000)
     {
-        if (Settings.DemoMode)
-        {
-            // В демо-режиме просто ждем 2 секунды и возвращаем случайный UID
-            var tcs = new TaskCompletionSource<string>();
-            Task.Delay(2000).ContinueWith(_ => tcs.SetResult("DEMO" + new Random().Next(1000, 9999)));
-            return tcs.Task;
-        }
 
         _scanTcs = new TaskCompletionSource<string>();
         var cts = new CancellationTokenSource(timeoutMs);
@@ -115,29 +112,6 @@ public class Hardware : IDisposable
     
     public void StartRfid()
     {
-        if (Settings.DemoMode)
-        {
-            // Демо-режим: раз в 10 секунд шлем метку
-            Task.Run(async () => {
-                await Task.Delay(3000);
-                while (true)
-                {
-                    await Task.Delay(10000);
-                    string uid = "A1B2C3D4";
-                    if (_scanTcs != null)
-                    {
-                        _scanTcs.TrySetResult(uid);
-                        _scanTcs = null;
-                    }
-                    else
-                    {
-                        TagScanned?.Invoke(uid);
-                    }
-                }
-            });
-            return;
-        }
-        
         Task.Run(() =>
         {
             try

@@ -17,18 +17,6 @@ public partial class KioskWindow : Window
         InitializeComponent();
         App.MainKiosk = this;
         App.Hw.TagScanned += OnTagScanned;
-        
-        if (App.Hw.Settings.DemoMode)
-        {
-            Task.Run(async () => {
-                await Task.Delay(3000);
-                while (true)
-                {
-                    await Task.Delay(6000);
-                    Dispatcher.Invoke(() => OnTagScanned("A1B2C3D4"));
-                }
-            });
-        }
     }
 
     private async void OnTagScanned(string uid)
