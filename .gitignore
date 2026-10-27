@@ -37,6 +37,7 @@ artifacts/
 *.sqlite
 *.sqlite3
 app.log
+app.*.log
 logs/
 
 # --- OS ---
