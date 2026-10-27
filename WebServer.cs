@@ -49,14 +49,40 @@ public class WebServer
         });
     }
 
+    private void ApplyCors(HttpListenerRequest req, HttpListenerResponse res)
+    {
+        var origin = req.Headers["Origin"];
+        if (!string.IsNullOrEmpty(origin) && IsAllowedOrigin(origin))
+        {
+            res.Headers.Add("Access-Control-Allow-Origin", origin);
+            res.Headers.Add("Vary", "Origin");
+        }
+        res.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        res.Headers.Add("Access-Control-Allow-Headers", "Content-Type");
+        res.Headers.Add("Access-Control-Max-Age", "600");
+    }
+
+    private bool IsAllowedOrigin(string origin)
+    {
+        return origin == $"http://localhost:{Port}"
+            || origin == $"http://127.0.0.1:{Port}";
+    }
+
     private async Task HandleRequest(HttpListenerContext ctx)
     {
         var req = ctx.Request;
         var res = ctx.Response;
-        res.Headers.Add("Access-Control-Allow-Origin", "*");
+        ApplyCors(req, res);
 
         try
         {
+            // CORS preflight
+            if (string.Equals(req.HttpMethod, "OPTIONS", StringComparison.OrdinalIgnoreCase))
+            {
+                res.StatusCode = 204;
+                return;
+            }
+
             string reqPath = req.Url?.AbsolutePath ?? "/";
 
             if (reqPath.StartsWith("/api/"))
