@@ -39,6 +39,7 @@ public class Database
         }
     }
 
+    // СОТРУДНИКИ
     public List<Employee> GetEmployees(string search = "")
     {
         using var c = Open();
@@ -55,6 +56,27 @@ public class Database
         return list;
     }
 
+    public void AddEmployee(string name)
+    {
+        using var c = Open();
+        c.Execute("INSERT INTO Employees (FullName) VALUES (@n)", new { n = name });
+    }
+
+    public void UpdateEmployee(int id, string name)
+    {
+        using var c = Open();
+        c.Execute("UPDATE Employees SET FullName = @n WHERE Id = @id", new { n = name, id = id });
+    }
+
+    public void DeleteEmployee(int id)
+    {
+        using var c = Open();
+        c.Execute("UPDATE Lockers SET EmployeeId = NULL WHERE EmployeeId = @id", new { id });
+        c.Execute("DELETE FROM RfidTags WHERE EmployeeId = @id", new { id });
+        c.Execute("DELETE FROM Employees WHERE Id = @id", new { id });
+    }
+
+    // ЯЧЕЙКИ
     public List<Locker> GetLockers()
     {
         using var c = Open();
@@ -75,20 +97,20 @@ public class Database
         c.Execute("UPDATE Lockers SET ModuleId = @m, ChannelId = @ch WHERE Id = @id", new { m = module, ch = channel, id });
     }
 
-    public void AddEmployee(string name)
+    public void SetFaulty(int id, bool isFaulty)
     {
         using var c = Open();
-        c.Execute("INSERT INTO Employees (FullName) VALUES (@n)", new { n = name });
+        c.Execute("UPDATE Lockers SET IsFaulty = @f WHERE Id = @id", new { f = isFaulty ? 1 : 0, id });
     }
 
-    public void DeleteEmployee(int id)
+    public void SetServiceLockers(int id1, int id2)
     {
         using var c = Open();
-        c.Execute("UPDATE Lockers SET EmployeeId = NULL WHERE EmployeeId = @id", new { id });
-        c.Execute("DELETE FROM RfidTags WHERE EmployeeId = @id", new { id });
-        c.Execute("DELETE FROM Employees WHERE Id = @id", new { id });
+        c.Execute("UPDATE Lockers SET IsService = 0"); // Сбрасываем старые
+        c.Execute("UPDATE Lockers SET IsService = 1, EmployeeId = NULL WHERE Id IN (@id1, @id2)", new { id1, id2 });
     }
 
+    // МЕТКИ
     public List<RfidTag> GetTags()
     {
         using var c = Open();
@@ -97,6 +119,19 @@ public class Database
             FROM RfidTags t JOIN Employees e ON e.Id = t.EmployeeId").ToList();
     }
 
+    public void AddTag(string uid, int employeeId)
+    {
+        using var c = Open();
+        c.Execute("INSERT OR REPLACE INTO RfidTags (Uid, EmployeeId, Description) VALUES (@u, @e, 'Основная')", new { u = uid, e = employeeId });
+    }
+
+    public void DeleteTag(string uid)
+    {
+        using var c = Open();
+        c.Execute("DELETE FROM RfidTags WHERE Uid = @u", new { u = uid });
+    }
+
+    // ЛОГИ
     public void AddLog(int? empId, int? lockerId, string action, string details = "")
     {
         using var c = Open();
