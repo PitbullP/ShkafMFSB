@@ -5,6 +5,7 @@ public class DemoHardware : IHardware
 {
     private TaskCompletionSource<string>? _scanTcs;
     private readonly Random _rng = new();
+    private readonly CancellationTokenSource _cts = new();
 
     public Config Settings { get; }
     public event Action<string>? TagScanned;
@@ -44,29 +45,33 @@ public class DemoHardware : IHardware
 
     public void StartRfid()
     {
-        // Раз в 10 секунд эмулируем сканирование метки
+        // Эмуляция: через 3с, затем раз в 10с шлём метку A1B2C3D4.
+        // _cts позволяет остановить фоновый цикл при Dispose (раньше был while(true) без отмены).
+        var token = _cts.Token;
         Task.Run(async () =>
         {
-            await Task.Delay(3000);
-            while (true)
+            try
             {
-                await Task.Delay(10000);
-                string uid = "A1B2C3D4";
-                if (_scanTcs != null)
+                await Task.Delay(3000, token);
+                while (!token.IsCancellationRequested)
                 {
-                    _scanTcs.TrySetResult(uid);
-                    _scanTcs = null;
-                }
-                else
-                {
-                    TagScanned?.Invoke(uid);
+                    await Task.Delay(10000, token);
+                    const string uid = "A1B2C3D4";
+                    var tcs = _scanTcs;
+                    if (tcs != null && tcs.TrySetResult(uid))
+                        _scanTcs = null;
+                    else
+                        TagScanned?.Invoke(uid);
                 }
             }
+            catch (OperationCanceledException) { /* норма при Dispose */ }
+            catch (Exception ex) { Logger.LogError("DemoHardware.StartRfid", ex); }
         });
     }
 
     public void Dispose()
     {
+        _cts.Cancel();
         _scanTcs?.TrySetCanceled();
         _scanTcs = null;
         GC.SuppressFinalize(this);
