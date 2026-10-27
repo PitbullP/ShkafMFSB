@@ -49,6 +49,76 @@ public class WebServer
         });
     }
 
+    private sealed class ValidationException : Exception
+    {
+        public ValidationException(string message) : base(message) { }
+    }
+
+    private static class V
+    {
+        public static string Str(JsonElement body, string name, int min = 1, int max = 200)
+        {
+            if (!body.TryGetProperty(name, out var el) || el.ValueKind != JsonValueKind.String)
+                throw new ValidationException($"Поле '{name}' обязательно и должно быть строкой");
+            var s = el.GetString() ?? "";
+            if (s.Trim().Length < min)
+                throw new ValidationException($"Поле '{name}' не может быть короче {min} символов");
+            if (s.Length > max)
+                throw new ValidationException($"Поле '{name}' не может быть длиннее {max} символов");
+            return s.Trim();
+        }
+
+        public static int Int(JsonElement body, string name, int min = int.MinValue, int max = int.MaxValue)
+        {
+            if (!body.TryGetProperty(name, out var el) || el.ValueKind != JsonValueKind.Number)
+                throw new ValidationException($"Поле '{name}' обязательно и должно быть числом");
+            if (!el.TryGetInt32(out var v))
+                throw new ValidationException($"Поле '{name}' должно быть 32-битным целым");
+            if (v < min || v > max)
+                throw new ValidationException($"Поле '{name}' должно быть в диапазоне [{min}..{max}]");
+            return v;
+        }
+
+        public static int? NullableInt(JsonElement body, string name, int min = int.MinValue, int max = int.MaxValue)
+        {
+            if (!body.TryGetProperty(name, out var el) || el.ValueKind == JsonValueKind.Null)
+                return null;
+            if (el.ValueKind != JsonValueKind.Number || !el.TryGetInt32(out var v))
+                throw new ValidationException($"Поле '{name}' должно быть числом или null");
+            if (v < min || v > max)
+                throw new ValidationException($"Поле '{name}' должно быть в диапазоне [{min}..{max}]");
+            return v;
+        }
+
+        public static bool Bool(JsonElement body, string name)
+        {
+            if (!body.TryGetProperty(name, out var el))
+                throw new ValidationException($"Поле '{name}' обязательно");
+            if (el.ValueKind == JsonValueKind.True) return true;
+            if (el.ValueKind == JsonValueKind.False) return false;
+            throw new ValidationException($"Поле '{name}' должно быть bool");
+        }
+    }
+
+    private static async Task<JsonElement> ReadJsonBodyAsync(HttpListenerRequest req)
+    {
+        using var reader = new StreamReader(req.InputStream, req.ContentEncoding ?? Encoding.UTF8);
+        var text = await reader.ReadToEndAsync();
+        if (string.IsNullOrWhiteSpace(text))
+            throw new ValidationException("Тело запроса пустое");
+        try
+        {
+            var el = JsonSerializer.Deserialize<JsonElement>(text);
+            if (el.ValueKind != JsonValueKind.Object)
+                throw new ValidationException("Тело запроса должно быть JSON-объектом");
+            return el;
+        }
+        catch (JsonException jex)
+        {
+            throw new ValidationException("Некорректный JSON: " + jex.Message);
+        }
+    }
+
     private void ApplyCors(HttpListenerRequest req, HttpListenerResponse res)
     {
         var origin = req.Headers["Origin"];
@@ -85,11 +155,13 @@ public class WebServer
 
             string reqPath = req.Url?.AbsolutePath ?? "/";
 
-            if (reqPath.StartsWith("/api/"))
+            if (reqPath.StartsWith("/api/", StringComparison.Ordinal))
             {
                 res.ContentType = "application/json; charset=utf-8";
                 string json = "{}";
-
+                int status = 200;
+                try
+                {
                 switch (reqPath)
                 {
                     case "/api/data":
@@ -104,19 +176,17 @@ public class WebServer
                         break;
 
                     case "/api/verify-pin":
-                        using (var reader = new StreamReader(req.InputStream))
                         {
-                            var body = JsonSerializer.Deserialize<JsonElement>(await reader.ReadToEndAsync());
-                            bool ok = _db.VerifyPin(body.GetProperty("pin").GetString()!);
+                            var body = await ReadJsonBodyAsync(req);
+                            bool ok = _db.VerifyPin(V.Str(body, "pin", 0, 128));
                             json = JsonSerializer.Serialize(new { success = ok }, _jsonOptions);
                         }
                         break;
 
                     case "/api/settings/pin":
-                        using (var reader = new StreamReader(req.InputStream))
                         {
-                            var body = JsonSerializer.Deserialize<JsonElement>(await reader.ReadToEndAsync());
-                            _db.UpdatePin(body.GetProperty("pin").GetString()!);
+                            var body = await ReadJsonBodyAsync(req);
+                            _db.UpdatePin(V.Str(body, "pin", 4, 128));
                         }
                         break;
 
@@ -130,22 +200,37 @@ public class WebServer
                     case "/api/assign":
                     case "/api/tag/add":
                     case "/api/tag/delete":
-                    case "/api/hardware":
                     case "/api/locker/faulty":
                     case "/api/locker/service":
                     case "/api/open":
-                        using (var reader = new StreamReader(req.InputStream))
                         {
-                            var body = JsonSerializer.Deserialize<JsonElement>(await reader.ReadToEndAsync());
-                            if (reqPath == "/api/employee/add") _db.AddEmployee(body.GetProperty("name").GetString()!);
-                            if (reqPath == "/api/employee/update") _db.UpdateEmployee(body.GetProperty("id").GetInt32(), body.GetProperty("name").GetString()!);
-                            if (reqPath == "/api/assign") _db.AssignLocker(body.GetProperty("lockerId").GetInt32(), body.GetProperty("employeeId").ValueKind == JsonValueKind.Null ? null : body.GetProperty("employeeId").GetInt32());
-                            if (reqPath == "/api/tag/add") _db.AddTag(body.GetProperty("uid").GetString()!, body.GetProperty("employeeId").GetInt32());
-                            if (reqPath == "/api/tag/delete") _db.DeleteTag(body.GetProperty("uid").GetString()!);
-                            if (reqPath == "/api/locker/faulty") _db.SetFaulty(body.GetProperty("id").GetInt32(), body.GetProperty("faulty").GetBoolean());
-                            if (reqPath == "/api/locker/service") _db.SetServiceLockers(body.GetProperty("id1").GetInt32(), body.GetProperty("id2").GetInt32());
-                            if (reqPath == "/api/hardware") { var items = JsonSerializer.Deserialize<List<Locker>>(body.GetRawText(), _jsonOptions); foreach (var item in items!) _db.UpdateHardware(item.Id, item.ModuleId, item.ChannelId); }
-                            if (reqPath == "/api/open") { int lid = body.GetProperty("lockerId").GetInt32(); var l = _db.GetLockers().FirstOrDefault(x => x.Id == lid); if (l != null) await _hw.PulseRelayAsync(l.ModuleId, l.ChannelId); }
+                            var body = await ReadJsonBodyAsync(req);
+                            if (reqPath == "/api/employee/add") _db.AddEmployee(V.Str(body, "name", 1, 200));
+                            if (reqPath == "/api/employee/update") _db.UpdateEmployee(V.Int(body, "id", 1), V.Str(body, "name", 1, 200));
+                            if (reqPath == "/api/assign") _db.AssignLocker(V.Int(body, "lockerId", 1), V.NullableInt(body, "employeeId", 1));
+                            if (reqPath == "/api/tag/add") _db.AddTag(V.Str(body, "uid", 4, 64), V.Int(body, "employeeId", 1));
+                            if (reqPath == "/api/tag/delete") _db.DeleteTag(V.Str(body, "uid", 4, 64));
+                            if (reqPath == "/api/locker/faulty") _db.SetFaulty(V.Int(body, "id", 1), V.Bool(body, "faulty"));
+                            if (reqPath == "/api/locker/service") _db.SetServiceLockers(V.Int(body, "id1", 1), V.Int(body, "id2", 1));
+                            if (reqPath == "/api/open") { int lid = V.Int(body, "lockerId", 1); var l = _db.GetLockers().FirstOrDefault(x => x.Id == lid); if (l != null) await _hw.PulseRelayAsync(l.ModuleId, l.ChannelId); }
+                        }
+                        break;
+
+                    case "/api/hardware":
+                        {
+                            using var reader = new StreamReader(req.InputStream, req.ContentEncoding ?? Encoding.UTF8);
+                            var rawText = await reader.ReadToEndAsync();
+                            if (string.IsNullOrWhiteSpace(rawText))
+                                throw new ValidationException("Тело запроса пустое");
+                            List<Locker>? items;
+                            try { items = JsonSerializer.Deserialize<List<Locker>>(rawText, _jsonOptions); }
+                            catch (JsonException jex) { throw new ValidationException("Некорректный JSON: " + jex.Message); }
+                            if (items == null) throw new ValidationException("Список не может быть null");
+                            foreach (var item in items)
+                            {
+                                if (item.Id <= 0) throw new ValidationException("Id ячейки должен быть > 0");
+                                _db.UpdateHardware(item.Id, item.ModuleId, item.ChannelId);
+                            }
                         }
                         break;
 
@@ -166,7 +251,19 @@ public class WebServer
                         });
                         break;
                 }
+                }
+                catch (ValidationException vex)
+                {
+                    status = 400;
+                    json = JsonSerializer.Serialize(new { error = vex.Message }, _jsonOptions);
+                }
+                catch (JsonException jex)
+                {
+                    status = 400;
+                    json = JsonSerializer.Serialize(new { error = "Некорректный JSON: " + jex.Message }, _jsonOptions);
+                }
 
+                res.StatusCode = status;
                 var bytes = Encoding.UTF8.GetBytes(json);
                 res.ContentLength64 = bytes.Length;
                 await res.OutputStream.WriteAsync(bytes);
