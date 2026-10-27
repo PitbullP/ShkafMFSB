@@ -45,4 +45,14 @@ public partial class App : Application
             Shutdown();
         }
     }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        try { Server?.Dispose(); }
+        catch (Exception ex) { Logger.LogError("App.OnExit (Server)", ex); }
+        try { Hw?.Dispose(); }
+        catch (Exception ex) { Logger.LogError("App.OnExit (Hardware)", ex); }
+        Logger.Log("=== ЗАВЕРШЕНИЕ ПРОГРАММЫ ===");
+        base.OnExit(e);
+    }
 }

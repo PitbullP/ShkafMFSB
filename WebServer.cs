@@ -9,9 +9,10 @@ using System.Diagnostics;
 
 namespace ShkafMFSB;
 
-public class WebServer
+public class WebServer : IDisposable
 {
     private readonly HttpListener _listener = new();
+    private bool _disposed;
     private readonly Database _db;
     private readonly Hardware _hw;
     public string Port { get; private set; } = "50000"; 
@@ -355,5 +356,16 @@ public class WebServer
         }
         catch (Exception ex) { Logger.LogError("WebServer", ex); }
         finally { res.Close(); }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        try { if (_listener.IsListening) _listener.Stop(); }
+        catch (Exception ex) { Logger.LogError("WebServer.Dispose (Stop)", ex); }
+        try { _listener.Close(); }
+        catch (Exception ex) { Logger.LogError("WebServer.Dispose (Close)", ex); }
+        GC.SuppressFinalize(this);
     }
 }

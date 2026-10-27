@@ -19,7 +19,7 @@ public class ModbusConfig { public string Port { get; set; } = "COM3"; public in
 public class RfidConfig { public string ReaderName { get; set; } = ""; }
 public class WebConfig { public int Port { get; set; } = 5000; }
 
-public class Hardware
+public class Hardware : IDisposable
 {
     private IModbusMaster? _master;
     private SerialPort? _port;
@@ -170,5 +170,19 @@ public class Hardware
             }
             catch (Exception ex) { Logger.LogError("Hardware.RfidScan", ex); }
         });
+    }
+
+    public void Dispose()
+    {
+        try { (_master as IDisposable)?.Dispose(); }
+        catch (Exception ex) { Logger.LogError("Hardware.Dispose (Modbus)", ex); }
+        try { _port?.Close(); _port?.Dispose(); }
+        catch (Exception ex) { Logger.LogError("Hardware.Dispose (SerialPort)", ex); }
+        try { _scanTcs?.TrySetCanceled(); }
+        catch (Exception ex) { Logger.LogError("Hardware.Dispose (ScanTcs)", ex); }
+        _master = null;
+        _port = null;
+        _scanTcs = null;
+        GC.SuppressFinalize(this);
     }
 }
