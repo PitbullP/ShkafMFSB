@@ -15,9 +15,9 @@ public class Database
     private readonly string _connStr;
     public string DbPath { get; }
 
-    public Database()
+    public Database(string? dbPath = null)
     {
-        DbPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "shkaf_mfsb.db");
+        DbPath = dbPath ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "shkaf_mfsb.db");
         _connStr = $"Data Source={DbPath}";
     }
 
