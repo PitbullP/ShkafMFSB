@@ -16,12 +16,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.10" />
-    <PackageReference Include="Dapper" Version="2.1.35" />
-    <PackageReference Include="System.IO.Ports" Version="8.0.0" />
-    <PackageReference Include="NModbus" Version="3.0.81" />
-    <PackageReference Include="NModbus.Serial" Version="3.0.81" />
-    <PackageReference Include="PCSC" Version="6.1.1" />
+    <!-- Исключаем папку Core из компиляции WPF-проекта (она собирается отдельным проектом) -->
+    <Compile Remove="ShkafMFSB.Core\**\*.cs" />
+    <None Remove="ShkafMFSB.Core\**\*" />
+    <EmbeddedResource Remove="ShkafMFSB.Core\**\*" />
+    <Page Remove="ShkafMFSB.Core\**\*" />
   </ItemGroup>
 
   <ItemGroup>
@@ -31,6 +30,9 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>
     
+    <!-- Ссылка на Core (Database, Hardware, Logger, Models) -->
+    <ProjectReference Include="ShkafMFSB.Core\ShkafMFSB.Core.csproj" />
+
     <!-- Встраиваем HTML в EXE (на всякий случай) -->
     <EmbeddedResource Include="web\index.html" />
     
