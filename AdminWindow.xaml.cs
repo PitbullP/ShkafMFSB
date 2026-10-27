@@ -49,35 +49,12 @@ public partial class AdminWindow : Window
     // ═══════════════════════════════════════════════════════════════
     private void AddEmployee_Click(object sender, RoutedEventArgs e)
     {
-        // Простой ввод ФИО (для теста)
-        var dialog = new Window
+        var dlg = new AddEmployeeWindow { Owner = this };
+        if (dlg.ShowDialog() == true && !string.IsNullOrWhiteSpace(dlg.EmployeeName))
         {
-            Title = "Новый сотрудник", Width = 300, Height = 150,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Owner = this, Background = new SolidColorBrush(Color.FromRgb(15, 23, 42))
-        };
-        var grid = new Grid { Margin = new Thickness(15) };
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-
-        var txt = new TextBox { Margin = new Thickness(0, 0, 0, 10) };
-        var btn = new Button { Content = "Создать", Background = new SolidColorBrush(Color.FromRgb(30, 64, 175)), Foreground = Brushes.White, Padding = new Thickness(10, 5, 10, 5) };
-        
-        Grid.SetRow(txt, 0); grid.Children.Add(txt);
-        Grid.SetRow(btn, 1); grid.Children.Add(btn);
-        dialog.Content = grid;
-
-        btn.Click += (s, ev) =>
-        {
-            if (!string.IsNullOrWhiteSpace(txt.Text))
-            {
-                App.Db.AddEmployee(txt.Text.Trim());
-                LoadData();
-                dialog.Close();
-            }
-        };
-        dialog.ShowDialog();
+            App.Db.AddEmployee(dlg.EmployeeName);
+            LoadData();
+        }
     }
 
     private void EmpGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
