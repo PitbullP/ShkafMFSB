@@ -12,18 +12,20 @@ public class Config
     public bool DemoMode { get; set; } = true;
     public ModbusConfig Modbus { get; set; } = new();
     public RfidConfig Rfid { get; set; } = new();
-    public WebConfig Web { get; set; } = new(); // Новый раздел
+    public WebConfig Web { get; set; } = new();
 }
 
 public class ModbusConfig { public string Port { get; set; } = "COM3"; public int BaudRate { get; set; } = 9600; }
 public class RfidConfig { public string ReaderName { get; set; } = ""; }
-public class WebConfig { public int Port { get; set; } = 5000; } // Настройка порта
+public class WebConfig { public int Port { get; set; } = 5000; }
 
 public class Hardware
 {
     private IModbusMaster? _master;
     private SerialPort? _port;
     public Config Settings { get; private set; } = new();
+
+    private TaskCompletionSource<string>? _scanTcs;
 
     public Hardware()
     {
@@ -66,10 +68,48 @@ public class Hardware
     }
 
     public event Action<string>? TagScanned;
+
+    // Метод для перехвата метки в админке
+    public Task<string> WaitForNextTagAsync(int timeoutMs = 15000)
+    {
+        if (Settings.DemoMode)
+        {
+            // В демо-режиме просто ждем 2 секунды и возвращаем случайный UID
+            var tcs = new TaskCompletionSource<string>();
+            Task.Delay(2000).ContinueWith(_ => tcs.SetResult("DEMO" + new Random().Next(1000, 9999)));
+            return tcs.Task;
+        }
+
+        _scanTcs = new TaskCompletionSource<string>();
+        var cts = new CancellationTokenSource(timeoutMs);
+        cts.Token.Register(() => _scanTcs.TrySetCanceled());
+        return _scanTcs.Task;
+    }
     
     public void StartRfid()
     {
-        if (Settings.DemoMode) return;
+        if (Settings.DemoMode)
+        {
+            // Демо-режим: раз в 10 секунд шлем метку
+            Task.Run(async () => {
+                await Task.Delay(3000);
+                while (true)
+                {
+                    await Task.Delay(10000);
+                    string uid = "A1B2C3D4";
+                    if (_scanTcs != null)
+                    {
+                        _scanTcs.TrySetResult(uid);
+                        _scanTcs = null;
+                    }
+                    else
+                    {
+                        TagScanned?.Invoke(uid);
+                    }
+                }
+            });
+            return;
+        }
         
         Task.Run(() =>
         {
@@ -94,7 +134,16 @@ public class Hardware
                         if (len > 0 && recv[len] == 0x90)
                         {
                             var uid = Convert.ToHexString(recv[..len]);
-                            TagScanned?.Invoke(uid);
+                            
+                            if (_scanTcs != null)
+                            {
+                                _scanTcs.TrySetResult(uid);
+                                _scanTcs = null;
+                            }
+                            else
+                            {
+                                TagScanned?.Invoke(uid);
+                            }
                         }
                     }
                     Thread.Sleep(300);
