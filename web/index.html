@@ -8,10 +8,10 @@
   body { font-family: 'Segoe UI', sans-serif; background: #0F172A; color: #fff; height: 100vh; display: flex; flex-direction: column; }
   .header { height: 64px; background: #1F2937; display: flex; align-items: center; padding: 0 20px; border-bottom: 1px solid #374151; }
   .header h1 { font-size: 18px; font-weight: bold; flex: 1; }
-  .btn { padding: 8px 16px; background: #1E40AF; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  .btn { padding: 8px 16px; background: #1E40AF; color: #fff; border: 1px solid transparent; border-radius: 6px; cursor: pointer; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; }
   .btn:hover { opacity: .85; }
-  .btn.danger { background: #7F1D1D; }
-  .btn.success { background: #1B7A3D; }
+  .btn.danger { background: #7F1D1D; border-color: #7F1D1D; }
+  .btn.success { background: #1B7A3D; border-color: #1B7A3D; }
   .tabs { display: flex; background: #1F2937; border-bottom: 1px solid #374151; }
   .tab { padding: 14px 24px; cursor: pointer; font-size: 14px; color: #9CA3AF; border-bottom: 2px solid transparent; }
   .tab:hover { color: #fff; }
@@ -30,7 +30,6 @@
   .locker.faulty { background: #7F1D1D; }
   .locker.selected { border-color: #F59E0B; }
   .hidden { display: none !important; }
-  .log-box { background: #111827; color: #10B981; font-family: monospace; padding: 15px; border-radius: 6px; white-space: pre-wrap; font-size: 13px; height: 500px; overflow-y: auto; border: 1px solid #374151; }
 </style>
 </head>
 <body>
@@ -50,30 +49,58 @@
     <div class="tabs">
       <div class="tab active" onclick="switchTab('emp', this)">Сотрудники</div>
       <div class="tab" onclick="switchTab('lockers', this)">Ячейки</div>
-      <div class="tab" onclick="switchTab('log', this)">Журнал событий</div>
-      <div class="tab" onclick="switchTab('syslog', this)">Системный лог</div>
+      <div class="tab" onclick="switchTab('tags', this)">Метки</div>
+      <div class="tab" onclick="switchTab('log', this)">Журнал</div>
       <div class="tab" onclick="switchTab('settings', this)">Настройки</div>
     </div>
     <div class="content">
       
       <div id="tab-emp" class="tab-panel">
-        <div class="panel">
-          <input type="text" id="searchBox" class="field" placeholder="Поиск по ФИО..." oninput="renderEmployees()">
-          <table class="table">
-            <thead><tr><th>ФИО</th><th>Ячейка</th><th>Меток</th></tr></thead>
-            <tbody id="empList"></tbody>
-          </table>
+        <div class="panel" style="display:grid; grid-template-columns: 400px 1fr; gap:16px;">
+          <div>
+            <div style="display:flex; gap:8px; margin-bottom:10px;">
+              <input type="text" id="searchBox" class="field" style="margin:0;" placeholder="Поиск по ФИО..." oninput="renderEmployees()">
+              <button class="btn primary" onclick="openNewUser()">+ Добавить</button>
+            </div>
+            <table class="table">
+              <thead><tr><th>ФИО</th><th>Ячейка</th><th>Меток</th></tr></thead>
+              <tbody id="empList"></tbody>
+            </table>
+          </div>
+          <div id="empCard" style="background:#111827; border-radius:8px; padding:16px;">
+            <p style="color:#6B7280; text-align:center; margin-top:40px;">Выберите сотрудника слева</p>
+          </div>
         </div>
       </div>
 
       <div id="tab-lockers" class="tab-panel hidden">
+        <div class="panel" style="display:grid; grid-template-columns: 1fr 360px; gap:16px;">
+          <div>
+            <div style="margin-bottom:15px;">
+              <button class="btn" style="background:#B45309" onclick="openServiceConfirm()">⚙ Открыть сервисные</button>
+              <button class="btn danger" onclick="openAllConfirm()">⚠ Открыть ВСЁ</button>
+            </div>
+            <div id="lockerGrid" class="grid-4"></div>
+          </div>
+          <div id="lockerInfo" style="background:#111827; border-radius:8px; padding:16px;">
+            <p style="color:#6B7280; text-align:center; margin-top:40px;">Выберите ячейку</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-tags" class="tab-panel hidden">
         <div class="panel">
-          <div id="lockerGrid" class="grid-4"></div>
+          <h3>Все зарегистрированные метки</h3>
+          <table class="table">
+            <thead><tr><th>UID</th><th>Владелец</th><th>Описание</th></tr></thead>
+            <tbody id="tagList"></tbody>
+          </table>
         </div>
       </div>
 
       <div id="tab-log" class="tab-panel hidden">
         <div class="panel">
+          <h3>Журнал событий</h3>
           <table class="table">
             <thead><tr><th>Время</th><th>Сотрудник</th><th>Событие</th><th>Ячейка</th><th>UID</th></tr></thead>
             <tbody id="logList"></tbody>
@@ -81,32 +108,32 @@
         </div>
       </div>
 
-      <div id="tab-syslog" class="tab-panel hidden">
-        <div class="panel">
-          <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-            <h3>Файл app.log</h3>
-            <button class="btn" onclick="loadSystemLog()">Обновить</button>
-          </div>
-          <div id="syslogText" class="log-box">Загрузка...</div>
-        </div>
-      </div>
-
       <div id="tab-settings" class="tab-panel hidden">
         <div class="panel">
-          <h3 style="margin-bottom:15px;">Привязка оборудования</h3>
+          <h3>Привязка оборудования</h3>
           <table class="table">
             <thead><tr><th>Ячейка</th><th>Модуль</th><th>Канал</th><th>Тест</th></tr></thead>
             <tbody id="hardwareList"></tbody>
           </table>
           <button class="btn success" style="margin-top:15px;" onclick="saveHardware()">Сохранить привязку</button>
         </div>
+        <div class="panel" style="margin-top:16px;">
+          <h3>Сервисные ячейки</h3>
+          <button class="btn" style="background:#B45309; margin-top:10px;" onclick="openServiceConfig()">Настроить сервисные</button>
+        </div>
       </div>
-
     </div>
+  </div>
+
+  <div class="overlay" id="overlay" style="position:fixed; inset:0; background:rgba(0,0,0,.85); display:none; align-items:center; justify-content:center; z-index:100;">
+    <div class="panel" id="overlayPanel" style="width:500px; text-align:center;"></div>
   </div>
 
 <script>
   let state = { employees: [], lockers: [], tags: [], logs: [] };
+  let selectedEmployee = null;
+  let selectedLocker = null;
+  let serviceLockerIds = [61, 62];
 
   async function api(path, method = 'GET', body = null) {
     const res = await fetch(`/api/${path}`, {
@@ -119,10 +146,12 @@
 
   async function loadData() {
     state = await api('data');
+    serviceLockerIds = state.lockers.filter(l => l.isService).map(l => l.id);
     renderEmployees();
     renderLockers();
-    renderHardware();
+    renderTags();
     renderLogs();
+    renderHardware();
   }
 
   function login() {
@@ -143,24 +172,120 @@
     document.querySelectorAll('.tab-panel').forEach(t => t.classList.add('hidden'));
     el.classList.add('active');
     document.getElementById('tab-' + id).classList.remove('hidden');
-    if (id === 'syslog') loadSystemLog();
   }
 
-  async function loadSystemLog() {
-    const res = await api('system-log');
-    const box = document.getElementById('syslogText');
-    box.textContent = res.log;
-    box.scrollTop = box.scrollHeight;
-  }
-
+  // ════════ СОТРУДНИКИ ════════
   function renderEmployees() {
     const q = document.getElementById('searchBox').value.toLowerCase();
-    const filtered = state.employees.filter(e => e.fullName.toLowerCase().includes(q));
+    const filtered = state.employees.filter(e => 
+      e.fullName.toLowerCase().includes(q) || (e.lockerDisplay && e.lockerDisplay.includes(q))
+    );
     document.getElementById('empList').innerHTML = filtered.map(e => `
-      <tr><td>${e.fullName}</td><td>${e.lockerDisplay}</td><td>${e.tagCount}</td></tr>
+      <tr style="cursor:pointer" onclick="selectEmployee(${e.id})">
+        <td>${e.fullName}</td>
+        <td>${e.lockerDisplay}</td>
+        <td>${e.tagCount}</td>
+      </tr>
     `).join('');
   }
 
+  function selectEmployee(id) {
+    selectedEmployee = state.employees.find(e => e.id === id);
+    const empTags = state.tags.filter(t => t.employeeId === id);
+    
+    const availableLockers = state.lockers.filter(l => 
+      !l.isService && (!l.employeeId || l.employeeId === id)
+    );
+    const lockerOptions = availableLockers.map(l => 
+      `<option value="${l.id}" ${l.employeeId === id ? 'selected' : ''}>№ ${l.id}</option>`
+    ).join('');
+
+    document.getElementById('empCard').innerHTML = `
+      <h4 style="color:#9CA3AF; margin-bottom:6px">ФИО</h4>
+      <input class="field" value="${selectedEmployee.fullName}" id="empNameInput">
+
+      <h4 style="color:#9CA3AF; margin-bottom:6px">Закреплённая ячейка</h4>
+      <select class="field" id="empLockerSelect">
+        <option value="">— не назначена —</option>
+        ${lockerOptions}
+      </select>
+
+      <h4 style="color:#9CA3AF; margin-top:12px; margin-bottom:6px">RFID-метки (${empTags.length})</h4>
+      <div>
+        ${empTags.map(t => `
+          <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #1F2937">
+            <span>${t.uid}</span>
+            <button class="btn danger" style="padding:2px 8px; font-size:11px" onclick="unbindTag('${t.uid}')">Отвязать</button>
+          </div>
+        `).join('') || '<p style="color:#6B7280; font-size:12px">Нет меток</p>'}
+      </div>
+      <button class="btn primary" style="margin-top:12px" onclick="openBind()">+ Привязать метку</button>
+
+      <div style="margin-top:20px; display:flex; gap:8px;">
+        <button class="btn success" onclick="saveEmployee()">Сохранить</button>
+      </div>
+    `;
+  }
+
+  async function saveEmployee() {
+    if (!selectedEmployee) return;
+    const newName = document.getElementById('empNameInput').value.trim();
+    const newLockerRaw = document.getElementById('empLockerSelect').value;
+    const newLockerId = newLockerRaw ? parseInt(newLockerRaw) : null;
+
+    if (!newName) { alert('ФИО не может быть пустым'); return; }
+
+    if (newLockerId) {
+      const targetLocker = state.lockers.find(l => l.id === newLockerId);
+      if (targetLocker.isService) { alert('Сервисную ячейку нельзя назначить'); return; }
+      if (targetLocker.employeeId && targetLocker.employeeId !== selectedEmployee.id) {
+        alert(`Ячейка № ${targetLocker.id} уже занята.`); return;
+      }
+    }
+
+    // Обновляем ФИО
+    await api('employee/update', 'POST', { id: selectedEmployee.id, name: newName });
+    
+    // Обновляем ячейку
+    if (selectedEmployee.lockerDisplay !== (newLockerId ? `№ ${newLockerId}` : '—')) {
+       // Освобождаем старую
+       const oldLocker = state.lockers.find(l => l.employeeId === selectedEmployee.id);
+       if (oldLocker) await api('assign', 'POST', { lockerId: oldLocker.id, employeeId: null });
+       // Назначаем новую
+       if (newLockerId) await api('assign', 'POST', { lockerId: newLockerId, employeeId: selectedEmployee.id });
+    }
+
+    alert('Сохранено!');
+    loadData();
+  }
+
+  async function unbindTag(uid) {
+    if (!confirm(`Отвязать метку ${uid}?`)) return;
+    await api('tag/delete', 'POST', { uid });
+    loadData().then(() => selectEmployee(selectedEmployee.id));
+  }
+
+  function openNewUser() {
+    showOverlay(`
+      <h2>Новый сотрудник</h2>
+      <p style="color:#9CA3AF; margin-bottom:10px">Введите ФИО</p>
+      <input id="newUserName" class="field" placeholder="Иванов Иван Иванович">
+      <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:20px">
+        <button class="btn" onclick="hideOverlay()">Отмена</button>
+        <button class="btn primary" onclick="createUser()">Создать</button>
+      </div>
+    `);
+  }
+
+  async function createUser() {
+    const name = document.getElementById('newUserName').value.trim();
+    if (!name) return;
+    await api('employee/add', 'POST', { name });
+    hideOverlay();
+    loadData();
+  }
+
+  // ════════ ЯЧЕЙКИ ════════
   function renderLockers() {
     const service = state.lockers.filter(x => x.isService).map(x => x.id);
     const regular = state.lockers.filter(x => !x.isService).map(x => x.id);
@@ -181,29 +306,103 @@
       if (!l) return '';
       let cls = l.isService ? 'service' : (l.isFaulty ? 'faulty' : (l.employeeId ? 'taken' : 'free'));
       const name = l.isService ? 'Сервис' : (l.ownerName ? l.ownerName.split(' ')[0] : 'своб');
-      return `<div class="locker ${cls}" style="grid-column:${item.c}; grid-row:${item.r} / span ${item.s};" onclick="testRelay(${l.id})">${l.id}<br><small style="font-size:9px;font-weight:normal">${name}</small></div>`;
+      return `<div class="locker ${cls}" style="grid-column:${item.c}; grid-row:${item.r} / span ${item.s};" onclick="selectLocker(${l.id})">${l.id}<br><small style="font-size:9px;font-weight:normal">${name}</small></div>`;
     }).join('');
   }
 
-  function renderLogs() {
-    document.getElementById('logList').innerHTML = state.logs.map(l => `
-      <tr>
-        <td>${new Date(l.timestamp).toLocaleString()}</td>
-        <td>${l.employeeName || '—'}</td>
-        <td>${l.action}</td>
-        <td>${l.lockerId || '—'}</td>
-        <td>${l.tagUid || '—'}</td>
-      </tr>
-    `).join('');
+  function selectLocker(id) {
+    selectedLocker = state.lockers.find(l => l.id === id);
+    renderLockers();
+    const l = selectedLocker;
+
+    let ownerControl = '';
+    if (!l.isService) {
+      const empOptions = state.employees.map(e => `<option value="${e.id}" ${l.employeeId === e.id ? 'selected' : ''}>${e.fullName}</option>`).join('');
+      ownerControl = `
+        <h4 style="color:#9CA3AF; margin:12px 0 6px">Владелец</h4>
+        <select class="field" onchange="changeLockerOwner(${l.id}, this.value)">
+          <option value="">— не назначена —</option>
+          ${empOptions}
+        </select>`;
+    }
+
+    document.getElementById('lockerInfo').innerHTML = `
+      <h3>${l.isService ? 'Сервисная ячейка' : 'Ячейка № ' + l.id}</h3>
+      <p style="font-size:13px; line-height:1.9; color:#D1D5DB; margin-top:8px">
+        Модуль: ${l.moduleId}<br>
+        Канал: ${l.channelId}<br>
+        Состояние: ${l.isFaulty ? 'неисправна' : 'норма'}
+      </p>
+      ${ownerControl}
+      <button class="btn primary" style="margin-top:16px; width:100%" onclick="testRelay(${l.id})">Открыть вручную</button>
+      <label style="display:flex; align-items:center; gap:6px; margin-top:12px; font-size:13px">
+        <input type="checkbox" ${l.isFaulty ? 'checked' : ''} onchange="toggleFaulty(${l.id}, this.checked)"> Неисправна
+      </label>
+    `;
   }
 
+  async function changeLockerOwner(lockerId, empId) {
+    const l = state.lockers.find(x => x.id === lockerId);
+    if (!l || l.isService) return;
+
+    if (empId === "") {
+      await api('assign', 'POST', { lockerId, employeeId: null });
+    } else {
+      const emp = state.employees.find(e => e.id === Number(empId));
+      if (emp.lockerDisplay !== '—' && emp.lockerDisplay !== `№ ${lockerId}`) {
+        alert(`${emp.fullName} уже закреплён за ячейкой ${emp.lockerDisplay}.`);
+        selectLocker(lockerId); return;
+      }
+      if (l.employeeId && l.employeeId !== emp.id) {
+        alert(`Ячейка № ${lockerId} уже занята.`);
+        selectLocker(lockerId); return;
+      }
+      // Освобождаем старую ячейку сотрудника
+      const oldL = state.lockers.find(x => x.employeeId === emp.id);
+      if (oldL) await api('assign', 'POST', { lockerId: oldL.id, employeeId: null });
+      
+      await api('assign', 'POST', { lockerId, employeeId: emp.id });
+    }
+    loadData().then(() => selectLocker(lockerId));
+  }
+
+  async function toggleFaulty(id, checked) {
+    await api('locker/faulty', 'POST', { id, faulty: checked });
+    loadData().then(() => selectLocker(id));
+  }
+
+  // ════════ НАСТРОЙКИ ════════
   function renderHardware() {
     document.getElementById('hardwareList').innerHTML = state.lockers.map(l => `
       <tr>
         <td>${l.id} ${l.isService ? '(Сервис)' : ''}</td>
         <td><input type="number" class="field" style="padding:4px; width:60px; margin:0;" value="${l.moduleId}" onchange="state.lockers.find(x=>x.id===${l.id}).moduleId = parseInt(this.value)"></td>
         <td><input type="number" class="field" style="padding:4px; width:60px; margin:0;" value="${l.channelId}" onchange="state.lockers.find(x=>x.id===${l.id}).channelId = parseInt(this.value)"></td>
-        <td><button class="btn" style="padding:4px 8px;" onclick="testRelay(${l.id})">Открыть</button></td>
+        <td><button class="btn" style="padding:4px 8px;" onclick="testRelay(${l.id})">Тест</button></td>
+      </tr>
+    `).join('');
+  }
+
+  async function saveHardware() {
+    await api('hardware', 'POST', state.lockers);
+    alert('Привязка сохранена в БД!');
+  }
+
+  // ════════ ОСТАЛЬНОЕ ════════
+  function renderTags() {
+    document.getElementById('tagList').innerHTML = state.tags.map(t => `
+      <tr><td>${t.uid}</td><td>${t.ownerName}</td><td>${t.description || 'Основная'}</td></tr>
+    `).join('');
+  }
+
+  function renderLogs() {
+    document.getElementById('logList').innerHTML = state.logs.map(l => `
+      <tr style="background:${l.action === 'GRANTED' ? 'rgba(27,122,61,.15)' : (l.action.includes('DENIED') ? 'rgba(176,30,30,.15)' : 'transparent')}">
+        <td>${new Date(l.timestamp).toLocaleString()}</td>
+        <td>${l.employeeName || '—'}</td>
+        <td>${l.action}</td>
+        <td>${l.lockerId ? '№'+l.lockerId : '—'}</td>
+        <td>${l.tagUid || '—'}</td>
       </tr>
     `).join('');
   }
@@ -213,9 +412,96 @@
     alert('Команда на открытие отправлена!');
   }
 
-  async function saveHardware() {
-    await api('hardware', 'POST', state.lockers);
-    alert('Сохранено!');
+  function openBind() {
+    showOverlay(`
+      <h2>Привязка метки</h2>
+      <p style="color:#60A5FA; margin:10px 0">Приложите метку к считывателю…</p>
+      <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:20px">
+        <button class="btn" onclick="hideOverlay()">Отмена</button>
+      </div>
+    `);
+    setTimeout(async () => {
+      if (!document.getElementById('overlay').classList.contains('active')) return;
+      // Имитация: генерируем метку. В реальности здесь был бы запрос от сканера.
+      const newUid = 'NEW' + Math.floor(Math.random()*10000);
+      await api('tag/add', 'POST', { uid: newUid, employeeId: selectedEmployee.id });
+      hideOverlay(); 
+      loadData().then(() => selectEmployee(selectedEmployee.id));
+    }, 2000);
+  }
+
+  function openServiceConfig() {
+    const opts = state.lockers.map(l => `<option value="${l.id}">Ячейка ${l.id}</option>`).join('');
+    showOverlay(`
+      <h2>Сервисные ячейки</h2>
+      <p style="color:#9CA3AF">Выберите две ячейки для оборудования.</p>
+      <div style="text-align:left; margin: 16px 0; background:#111827; padding:16px; border-radius:8px">
+        <label style="color:#9CA3AF; font-size:13px">Позиция 1:</label>
+        <select class="field" id="srvSelect1" style="margin-bottom:16px">${opts}</select>
+        <label style="color:#9CA3AF; font-size:13px">Позиция 2:</label>
+        <select class="field" id="srvSelect2">${opts}</select>
+      </div>
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button class="btn" onclick="hideOverlay()">Отмена</button>
+        <button class="btn danger" onclick="saveServiceConfig()">Сохранить</button>
+      </div>
+    `);
+    setTimeout(() => {
+      document.getElementById('srvSelect1').value = serviceLockerIds[0] || 61;
+      document.getElementById('srvSelect2').value = serviceLockerIds[1] || 62;
+    }, 10);
+  }
+
+  async function saveServiceConfig() {
+    const id1 = Number(document.getElementById('srvSelect1').value);
+    const id2 = Number(document.getElementById('srvSelect2').value);
+    if (id1 === id2) { alert('Выберите две разные ячейки'); return; }
+    
+    await api('locker/service', 'POST', { id1, id2 });
+    hideOverlay();
+    loadData();
+  }
+
+  function openServiceConfirm() {
+    const svc = state.lockers.filter(l => l.isService);
+    if (!svc.length) return alert('Нет сервисных ячеек');
+    showOverlay(`
+      <h2>Открыть сервисные</h2>
+      <p>Открыть ${svc.length} ячейки оборудования?</p>
+      <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:20px">
+        <button class="btn" onclick="hideOverlay()">Отмена</button>
+        <button class="btn" style="background:#B45309" onclick="hideOverlay(); startBulk([${svc.map(l=>l.id)}])">Открыть</button>
+      </div>
+    `);
+  }
+
+  function openAllConfirm() {
+    showOverlay(`
+      <h2 style="color:#FCA5A5">ОПАСНАЯ ОПЕРАЦИЯ</h2>
+      <p>Открыть ВСЕ ячейки?</p>
+      <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:20px">
+        <button class="btn" onclick="hideOverlay()">Отмена</button>
+        <button class="btn danger" onclick="hideOverlay(); startBulk(${state.lockers.map(l=>l.id)})">Открыть ВСЁ</button>
+      </div>
+    `);
+  }
+
+  async function startBulk(ids) {
+    showOverlay(`<h2>Открытие...</h2><p id="bulkStatus">0 / ${ids.length}</p>`);
+    for (let i = 0; i < ids.length; i++) {
+      await api('open', 'POST', { lockerId: ids[i] });
+      document.getElementById('bulkStatus').textContent = `${i+1} / ${ids.length}`;
+      await new Promise(r => setTimeout(r, 200));
+    }
+    hideOverlay();
+  }
+
+  function showOverlay(html) {
+    document.getElementById('overlayPanel').innerHTML = html;
+    document.getElementById('overlay').style.display = 'flex';
+  }
+  function hideOverlay() {
+    document.getElementById('overlay').style.display = 'none';
   }
 </script>
 </body>
