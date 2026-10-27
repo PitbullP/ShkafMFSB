@@ -54,7 +54,5 @@ jobs:
           path: "**/*.trx"
           retention-days: 7
 
-      - name: Format check (informational)
-        if: always()
-        continue-on-error: true
-        run: dotnet format ShkafMFSB.sln --verify-no-changes --verbosity diagnostic
+      - name: Format check
+        run: dotnet format ShkafMFSB.sln --verify-no-changes
