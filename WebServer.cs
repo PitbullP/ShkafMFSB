@@ -13,9 +13,13 @@ public class WebServer
     private readonly HttpListener _listener = new();
     private readonly Database _db;
     private readonly Hardware _hw;
+    private readonly string _port = "50000"; 
     
-    // Свойство, в котором хранится реальный рабочий порт
-    public string Port { get; private set; } = "5000"; 
+    // Настройки JSON: превращаем Id в id, FullName в fullName и т.д.
+    private readonly JsonSerializerOptions _jsonOptions = new() 
+    { 
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase 
+    };
 
     public WebServer(Database db, Hardware hw)
     {
@@ -26,13 +30,7 @@ public class WebServer
     public void Start()
     {
         bool started = false;
-        
-        // Берем начальный порт из настроек (appsettings.json)
-        int startPort = _hw.Settings.Web.Port;
-        if (startPort <= 0) startPort = 5000;
-        
-        // Пытаемся запуститься на выбранном порту. Если занят - ищем следующий (+1, +2...)
-        for (int p = startPort; p <= startPort + 20; p++)
+        for (int p = 50000; p <= 50020; p++)
         {
             try
             {
@@ -41,25 +39,15 @@ public class WebServer
                 _listener.Prefixes.Add($"http://localhost:{p}/");
                 
                 _listener.Start();
-                Port = p.ToString();
+                _port = p.ToString();
                 started = true;
-                Logger.Log($"Веб-сервер успешно запущен на порту {Port}");
+                Logger.Log($"Веб-сервер успешно запущен на порту {_port}");
                 break;
             }
-            catch (Exception ex)
-            {
-                Logger.Log($"Порт {p} занят или недоступен. Пробуем следующий... ({ex.Message})");
-            }
+            catch { /* Порт занят */ }
         }
 
-        if (!started)
-        {
-            Logger.LogError("WebServer.Start", new Exception($"Не удалось найти свободный порт (диапазон {startPort}-{startPort + 20})."));
-            MessageBox.Show($"Не удалось запустить веб-сервер. Все порты в диапазоне {startPort}-{startPort + 20} заняты.\n" +
-                            "Попробуйте изменить порт в файле appsettings.json.",
-                            "Ошибка веб-сервера", MessageBoxButton.OK, MessageBoxImage.Error);
-            return;
-        }
+        if (!started) return;
         
         Task.Run(async () =>
         {
@@ -70,8 +58,7 @@ public class WebServer
                     var ctx = await _listener.GetContextAsync();
                     _ = Task.Run(() => HandleRequest(ctx));
                 }
-                catch (HttpListenerException) { break; }
-                catch { /* Ignore */ }
+                catch { }
             }
         });
     }
@@ -85,7 +72,6 @@ public class WebServer
         try
         {
             string reqPath = req.Url?.AbsolutePath ?? "/";
-            Logger.Log($"HTTP-Запрос: {req.HttpMethod} {reqPath}");
 
             if (reqPath.StartsWith("/api/"))
             {
@@ -101,13 +87,13 @@ public class WebServer
                             lockers = _db.GetLockers(),
                             tags = _db.GetTags(),
                             logs = _db.GetLogs()
-                        });
+                        }, _jsonOptions);
                         break;
 
                     case "/api/system-log":
                         string logPath = Path.Combine(Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory, "app.log");
                         string logText = File.Exists(logPath) ? File.ReadAllText(logPath) : "Лог пуст.";
-                        json = JsonSerializer.Serialize(new { log = logText });
+                        json = JsonSerializer.Serialize(new { log = logText }, _jsonOptions);
                         break;
 
                     case "/api/employee":
@@ -134,7 +120,7 @@ public class WebServer
                         if (req.HttpMethod == "POST")
                         {
                             using var reader = new StreamReader(req.InputStream);
-                            var items = JsonSerializer.Deserialize<List<Locker>>(await reader.ReadToEndAsync());
+                            var items = JsonSerializer.Deserialize<List<Locker>>(await reader.ReadToEndAsync(), _jsonOptions);
                             foreach (var item in items!) _db.UpdateHardware(item.Id, item.ModuleId, item.ChannelId);
                         }
                         break;
@@ -149,87 +135,30 @@ public class WebServer
                             if (locker != null) await _hw.PulseRelayAsync(locker.ModuleId, locker.ChannelId);
                         }
                         break;
-
-                    case "/api/restore-kiosk":
-                        if (req.HttpMethod == "POST")
-                        {
-                            App.MainKiosk?.Dispatcher.Invoke(() =>
-                            {
-                                App.MainKiosk.WindowState = WindowState.Maximized;
-                                if (!App.Hw.Settings.DemoMode) 
-                                {
-                                    App.MainKiosk.Topmost = true;
-                                    App.MainKiosk.Cursor = System.Windows.Input.Cursors.None;
-                                }
-                            });
-                        }
-                        break;
                 }
 
                 var bytes = Encoding.UTF8.GetBytes(json);
                 res.ContentLength64 = bytes.Length;
                 await res.OutputStream.WriteAsync(bytes);
             }
-            else if (reqPath == "/favicon.ico")
-            {
-                res.StatusCode = 404;
-            }
             else
             {
-                string htmlContent = "";
-
                 string? exePath = Environment.ProcessPath;
                 string? exeDir = exePath != null ? Path.GetDirectoryName(exePath) : AppContext.BaseDirectory;
-                string webDir = Path.Combine(exeDir!, "web");
-                string filePath = Path.Combine(webDir, reqPath.TrimStart('/'));
-                if (reqPath == "/" || reqPath == "/index.html") 
-                    filePath = Path.Combine(webDir, "index.html");
+                string filePath = Path.Combine(exeDir!, "web", "index.html");
 
                 if (File.Exists(filePath))
                 {
-                    htmlContent = await File.ReadAllTextAsync(filePath);
-                    Logger.Log($"HTML прочитан с диска: {filePath} (размер: {htmlContent.Length} байт)");
+                    string htmlContent = await File.ReadAllTextAsync(filePath);
+                    var bytes = Encoding.UTF8.GetBytes(htmlContent);
+                    res.ContentType = "text/html; charset=utf-8";
+                    res.ContentLength64 = bytes.Length;
+                    await res.OutputStream.WriteAsync(bytes);
                 }
-                else
-                {
-                    Logger.Log($"Файл не найден по пути: {filePath}. Пытаемся прочитать из ресурсов...");
-                    var assembly = Assembly.GetExecutingAssembly();
-                    var resourceName = "ShkafMFSB.web.index.html"; 
-                    
-                    using Stream? stream = assembly.GetManifestResourceStream(resourceName);
-                    if (stream != null)
-                    {
-                        using StreamReader reader = new StreamReader(stream);
-                        htmlContent = await reader.ReadToEndAsync();
-                        Logger.Log($"HTML прочитан из ресурсов EXE (размер: {htmlContent.Length} байт)");
-                    }
-                    else
-                    {
-                        Logger.Log("КРИТИЧЕСКАЯ ОШИБКА: HTML не найден ни на диске, ни в ресурсах!");
-                        res.StatusCode = 404;
-                        var errBytes = Encoding.UTF8.GetBytes("Файл index.html не найден.");
-                        await res.OutputStream.WriteAsync(errBytes);
-                        return;
-                    }
-                }
-
-                var bytes = Encoding.UTF8.GetBytes(htmlContent);
-                res.ContentType = "text/html; charset=utf-8";
-                res.ContentLength64 = bytes.Length;
-                await res.OutputStream.WriteAsync(bytes);
-                Logger.Log($"Отправлено {bytes.Length} байт клиенту.");
+                else res.StatusCode = 404;
             }
         }
-        catch (Exception ex)
-        {
-            Logger.LogError("HandleRequest", ex);
-            res.StatusCode = 500;
-            var bytes = Encoding.UTF8.GetBytes(ex.Message);
-            await res.OutputStream.WriteAsync(bytes);
-        }
-        finally
-        {
-            res.Close();
-        }
+        catch (Exception ex) { Logger.LogError("WebServer", ex); }
+        finally { res.Close(); }
     }
 }
