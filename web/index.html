@@ -245,13 +245,22 @@
   let serviceLockerIds = [61, 62];
   let sortField = 'name';
   let sortAsc = true;
+  let authToken = null;
 
   async function api(path, method = 'GET', body = null) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
     const res = await fetch(`/api/${path}`, {
       method,
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: body ? JSON.stringify(body) : null
     });
+    if (res.status === 401) {
+      authToken = null;
+      document.getElementById('loginScreen').classList.remove('hidden');
+      document.getElementById('mainScreen').classList.add('hidden');
+      throw new Error('Сессия истекла, войдите заново');
+    }
     return res.json();
   }
 
@@ -269,6 +278,7 @@
     const pin = document.getElementById('pinInput').value;
     const res = await api('verify-pin', 'POST', { pin });
     if (res.success) {
+      authToken = res.token || null;
       document.getElementById('loginScreen').classList.add('hidden');
       document.getElementById('mainScreen').classList.remove('hidden');
       loadData();
@@ -278,7 +288,9 @@
   }
 
   async function restoreKiosk() {
-    await fetch('/api/restore-kiosk', { method: 'POST' });
+    const headers = {};
+    if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
+    await fetch('/api/restore-kiosk', { method: 'POST', headers });
     window.close();
   }
 

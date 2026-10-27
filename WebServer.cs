@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using System.Security.Cryptography;
 using System.Net;
 using System.IO;
 using System.Text;
@@ -14,6 +16,7 @@ public class WebServer
     private readonly Hardware _hw;
     public string Port { get; private set; } = "50000"; 
     private readonly JsonSerializerOptions _jsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+    private readonly TokenStore _tokens = new(TimeSpan.FromMinutes(30));
 
     public WebServer(Database db, Hardware hw) { _db = db; _hw = hw; }
 
@@ -47,6 +50,52 @@ public class WebServer
                 try { var ctx = await _listener.GetContextAsync(); _ = Task.Run(() => HandleRequest(ctx)); } catch { }
             }
         });
+    }
+
+    private sealed class UnauthorizedException : Exception
+    {
+        public UnauthorizedException() : base("Не авторизован") { }
+    }
+
+    private sealed class TokenStore
+    {
+        private readonly ConcurrentDictionary<string, DateTime> _tokens = new();
+        private readonly TimeSpan _ttl;
+
+        public TokenStore(TimeSpan ttl) { _ttl = ttl; }
+
+        public string Issue()
+        {
+            Cleanup();
+            var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
+                .Replace("+", "-").Replace("/", "_").Replace("=", "");
+            _tokens[token] = DateTime.UtcNow.Add(_ttl);
+            return token;
+        }
+
+        public bool IsValid(string? token)
+        {
+            if (string.IsNullOrEmpty(token)) return false;
+            if (!_tokens.TryGetValue(token, out var expires)) return false;
+            if (expires < DateTime.UtcNow) { _tokens.TryRemove(token, out _); return false; }
+            return true;
+        }
+
+        private void Cleanup()
+        {
+            var now = DateTime.UtcNow;
+            foreach (var kv in _tokens)
+                if (kv.Value < now) _tokens.TryRemove(kv.Key, out _);
+        }
+    }
+
+    private bool IsTokenValid(HttpListenerRequest req)
+    {
+        var header = req.Headers["Authorization"];
+        if (string.IsNullOrEmpty(header)) return false;
+        const string prefix = "Bearer ";
+        if (!header.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return false;
+        return _tokens.IsValid(header.Substring(prefix.Length).Trim());
     }
 
     private sealed class ValidationException : Exception
@@ -162,6 +211,8 @@ public class WebServer
                 int status = 200;
                 try
                 {
+                if (reqPath != "/api/verify-pin" && !IsTokenValid(req))
+                    throw new UnauthorizedException();
                 switch (reqPath)
                 {
                     case "/api/data":
@@ -179,7 +230,15 @@ public class WebServer
                         {
                             var body = await ReadJsonBodyAsync(req);
                             bool ok = _db.VerifyPin(V.Str(body, "pin", 0, 128));
-                            json = JsonSerializer.Serialize(new { success = ok }, _jsonOptions);
+                            if (ok)
+                            {
+                                var token = _tokens.Issue();
+                                json = JsonSerializer.Serialize(new { success = ok, token }, _jsonOptions);
+                            }
+                            else
+                            {
+                                json = JsonSerializer.Serialize(new { success = ok }, _jsonOptions);
+                            }
                         }
                         break;
 
@@ -251,6 +310,11 @@ public class WebServer
                         });
                         break;
                 }
+                }
+                catch (UnauthorizedException)
+                {
+                    status = 401;
+                    json = JsonSerializer.Serialize(new { error = "Не авторизован" }, _jsonOptions);
                 }
                 catch (ValidationException vex)
                 {
