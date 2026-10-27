@@ -21,6 +21,12 @@
     <None Remove="ShkafMFSB.Core\**\*" />
     <EmbeddedResource Remove="ShkafMFSB.Core\**\*" />
     <Page Remove="ShkafMFSB.Core\**\*" />
+
+    <!-- Исключаем папку Tests из компиляции WPF-проекта -->
+    <Compile Remove="ShkafMFSB.Tests\**\*.cs" />
+    <None Remove="ShkafMFSB.Tests\**\*" />
+    <EmbeddedResource Remove="ShkafMFSB.Tests\**\*" />
+    <Page Remove="ShkafMFSB.Tests\**\*" />
   </ItemGroup>
 
   <ItemGroup>
