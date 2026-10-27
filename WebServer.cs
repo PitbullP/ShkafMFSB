@@ -14,7 +14,7 @@ public class WebServer
     private readonly Database _db;
     private readonly Hardware _hw;
     
-    // Публичное свойство для доступа из KioskWindow
+    // Свойство для хранения текущего рабочего порта
     public string Port { get; private set; } = "50000"; 
 
     private readonly JsonSerializerOptions _jsonOptions = new() 
@@ -32,8 +32,12 @@ public class WebServer
     {
         bool started = false;
         
-        // Автопоиск свободного порта
-        for (int p = 50000; p <= 50020; p++)
+        // Берем порт из appsettings.json
+        int startPort = _hw.Settings.Web.Port;
+        if (startPort <= 0) startPort = 50000; // Страховка, если в конфиге 0 или пусто
+        
+        // Пытаемся запуститься на указанном порту. Если занят - ищем следующий (+1, +2...)
+        for (int p = startPort; p <= startPort + 20; p++)
         {
             try
             {
@@ -47,12 +51,18 @@ public class WebServer
                 Logger.Log($"Веб-сервер успешно запущен на порту {Port}");
                 break;
             }
-            catch { /* Порт занят, пробуем следующий */ }
+            catch (Exception ex)
+            {
+                Logger.Log($"Порт {p} занят или недоступен. Пробуем следующий... ({ex.Message})");
+            }
         }
 
         if (!started)
         {
-            Logger.Log("Не удалось запустить веб-сервер.");
+            Logger.LogError("WebServer.Start", new Exception($"Не удалось найти свободный порт (диапазон {startPort}-{startPort + 20})."));
+            MessageBox.Show($"Не удалось запустить веб-сервер. Все порты заняты.\n" +
+                            "Попробуйте изменить порт в файле appsettings.json.",
+                            "Ошибка веб-сервера", MessageBoxButton.OK, MessageBoxImage.Error);
             return;
         }
         
@@ -65,7 +75,7 @@ public class WebServer
                     var ctx = await _listener.GetContextAsync();
                     _ = Task.Run(() => HandleRequest(ctx));
                 }
-                catch { }
+                catch { /* Ignore */ }
             }
         });
     }
