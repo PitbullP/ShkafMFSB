@@ -16,10 +16,7 @@ public class WebServer
     
     public string Port { get; private set; } = "50000"; 
 
-    private readonly JsonSerializerOptions _jsonOptions = new() 
-    { 
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase 
-    };
+    private readonly JsonSerializerOptions _jsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
     public WebServer(Database db, Hardware hw)
     {
@@ -44,17 +41,13 @@ public class WebServer
                 _listener.Start();
                 Port = p.ToString();
                 started = true;
-                Logger.Log($"Веб-сервер успешно запущен на порту {Port}");
+                Logger.Log($"Веб-сервер запущен на порту {Port}");
                 break;
             }
             catch { }
         }
 
-        if (!started)
-        {
-            Logger.Log("Не удалось запустить веб-сервер.");
-            return;
-        }
+        if (!started) return;
         
         Task.Run(async () =>
         {
@@ -120,9 +113,8 @@ public class WebServer
                         {
                             using var reader = new StreamReader(req.InputStream);
                             var body = JsonSerializer.Deserialize<JsonElement>(await reader.ReadToEndAsync());
-                            int lockerId = body.GetProperty("lockerId").GetInt32();
-                            int? empId = body.GetProperty("employeeId").ValueKind == JsonValueKind.Null ? null : body.GetProperty("employeeId").GetInt32();
-                            _db.AssignLocker(lockerId, empId);
+                            _db.AssignLocker(body.GetProperty("lockerId").GetInt32(), 
+                                body.GetProperty("employeeId").ValueKind == JsonValueKind.Null ? null : body.GetProperty("employeeId").GetInt32());
                         }
                         break;
 
@@ -141,6 +133,18 @@ public class WebServer
                             using var reader = new StreamReader(req.InputStream);
                             var body = JsonSerializer.Deserialize<JsonElement>(await reader.ReadToEndAsync());
                             _db.DeleteTag(body.GetProperty("uid").GetString()!);
+                        }
+                        break;
+
+                    case "/api/tag/scan":
+                        try
+                        {
+                            var uid = await _hw.WaitForNextTagAsync(15000);
+                            json = JsonSerializer.Serialize(new { uid }, _jsonOptions);
+                        }
+                        catch (TaskCanceledException)
+                        {
+                            json = JsonSerializer.Serialize(new { error = "Timeout" }, _jsonOptions);
                         }
                         break;
 
@@ -204,10 +208,7 @@ public class WebServer
             }
             else
             {
-                string? exePath = Environment.ProcessPath;
-                string? exeDir = exePath != null ? Path.GetDirectoryName(exePath) : AppContext.BaseDirectory;
-                string filePath = Path.Combine(exeDir!, "web", "index.html");
-
+                string filePath = Path.Combine(Path.GetDirectoryName(Environment.ProcessPath)!, "web", "index.html");
                 if (File.Exists(filePath))
                 {
                     string htmlContent = await File.ReadAllTextAsync(filePath);
