@@ -3,7 +3,6 @@ using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Windows;
-using System.Reflection;
 using System.Diagnostics;
 
 namespace ShkafMFSB;
@@ -13,16 +12,10 @@ public class WebServer
     private readonly HttpListener _listener = new();
     private readonly Database _db;
     private readonly Hardware _hw;
-    
     public string Port { get; private set; } = "50000"; 
-
     private readonly JsonSerializerOptions _jsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
-    public WebServer(Database db, Hardware hw)
-    {
-        _db = db;
-        _hw = hw;
-    }
+    public WebServer(Database db, Hardware hw) { _db = db; _hw = hw; }
 
     public void Start()
     {
@@ -37,14 +30,12 @@ public class WebServer
                 _listener.Prefixes.Clear();
                 _listener.Prefixes.Add($"http://127.0.0.1:{p}/");
                 _listener.Prefixes.Add($"http://localhost:{p}/");
-                
                 _listener.Start();
                 Port = p.ToString();
                 started = true;
                 Logger.Log($"Веб-сервер запущен на порту {Port}");
                 break;
-            }
-            catch { }
+            } catch { }
         }
 
         if (!started) return;
@@ -53,12 +44,7 @@ public class WebServer
         {
             while (_listener.IsListening)
             {
-                try
-                {
-                    var ctx = await _listener.GetContextAsync();
-                    _ = Task.Run(() => HandleRequest(ctx));
-                }
-                catch { }
+                try { var ctx = await _listener.GetContextAsync(); _ = Task.Run(() => HandleRequest(ctx)); } catch { }
             }
         });
     }
@@ -81,58 +67,59 @@ public class WebServer
                 switch (reqPath)
                 {
                     case "/api/data":
-                        json = JsonSerializer.Serialize(new
+                        json = JsonSerializer.Serialize(new { employees = _db.GetEmployees(), lockers = _db.GetLockers(), tags = _db.GetTags(), logs = _db.GetLogs() }, _jsonOptions);
+                        break;
+
+                    case "/api/system-log":
+                        // ИСПРАВЛЕНО: Берем путь из реального расположения EXE
+                        string logPath = Path.Combine(Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory, "app.log");
+                        string logText = File.Exists(logPath) ? File.ReadAllText(logPath) : "Файл app.log пуст или не найден.";
+                        json = JsonSerializer.Serialize(new { log = logText }, _jsonOptions);
+                        break;
+
+                    case "/api/verify-pin":
+                        using (var reader = new StreamReader(req.InputStream))
                         {
-                            employees = _db.GetEmployees(),
-                            lockers = _db.GetLockers(),
-                            tags = _db.GetTags(),
-                            logs = _db.GetLogs()
-                        }, _jsonOptions);
+                            var body = JsonSerializer.Deserialize<JsonElement>(await reader.ReadToEndAsync());
+                            bool ok = _db.VerifyPin(body.GetProperty("pin").GetString()!);
+                            json = JsonSerializer.Serialize(new { success = ok }, _jsonOptions);
+                        }
+                        break;
+
+                    case "/api/settings/pin":
+                        using (var reader = new StreamReader(req.InputStream))
+                        {
+                            var body = JsonSerializer.Deserialize<JsonElement>(await reader.ReadToEndAsync());
+                            _db.UpdatePin(body.GetProperty("pin").GetString()!);
+                        }
+                        break;
+
+                    case "/api/backup":
+                        string backupFile = _db.BackupDb();
+                        json = JsonSerializer.Serialize(new { path = backupFile }, _jsonOptions);
                         break;
 
                     case "/api/employee/add":
-                        if (req.HttpMethod == "POST")
-                        {
-                            using var reader = new StreamReader(req.InputStream);
-                            var body = JsonSerializer.Deserialize<JsonElement>(await reader.ReadToEndAsync());
-                            _db.AddEmployee(body.GetProperty("name").GetString()!);
-                        }
-                        break;
-
                     case "/api/employee/update":
-                        if (req.HttpMethod == "POST")
-                        {
-                            using var reader = new StreamReader(req.InputStream);
-                            var body = JsonSerializer.Deserialize<JsonElement>(await reader.ReadToEndAsync());
-                            _db.UpdateEmployee(body.GetProperty("id").GetInt32(), body.GetProperty("name").GetString()!);
-                        }
-                        break;
-
                     case "/api/assign":
-                        if (req.HttpMethod == "POST")
-                        {
-                            using var reader = new StreamReader(req.InputStream);
-                            var body = JsonSerializer.Deserialize<JsonElement>(await reader.ReadToEndAsync());
-                            _db.AssignLocker(body.GetProperty("lockerId").GetInt32(), 
-                                body.GetProperty("employeeId").ValueKind == JsonValueKind.Null ? null : body.GetProperty("employeeId").GetInt32());
-                        }
-                        break;
-
                     case "/api/tag/add":
-                        if (req.HttpMethod == "POST")
-                        {
-                            using var reader = new StreamReader(req.InputStream);
-                            var body = JsonSerializer.Deserialize<JsonElement>(await reader.ReadToEndAsync());
-                            _db.AddTag(body.GetProperty("uid").GetString()!, body.GetProperty("employeeId").GetInt32());
-                        }
-                        break;
-
                     case "/api/tag/delete":
-                        if (req.HttpMethod == "POST")
+                    case "/api/hardware":
+                    case "/api/locker/faulty":
+                    case "/api/locker/service":
+                    case "/api/open":
+                        using (var reader = new StreamReader(req.InputStream))
                         {
-                            using var reader = new StreamReader(req.InputStream);
                             var body = JsonSerializer.Deserialize<JsonElement>(await reader.ReadToEndAsync());
-                            _db.DeleteTag(body.GetProperty("uid").GetString()!);
+                            if (reqPath == "/api/employee/add") _db.AddEmployee(body.GetProperty("name").GetString()!);
+                            if (reqPath == "/api/employee/update") _db.UpdateEmployee(body.GetProperty("id").GetInt32(), body.GetProperty("name").GetString()!);
+                            if (reqPath == "/api/assign") _db.AssignLocker(body.GetProperty("lockerId").GetInt32(), body.GetProperty("employeeId").ValueKind == JsonValueKind.Null ? null : body.GetProperty("employeeId").GetInt32());
+                            if (reqPath == "/api/tag/add") _db.AddTag(body.GetProperty("uid").GetString()!, body.GetProperty("employeeId").GetInt32());
+                            if (reqPath == "/api/tag/delete") _db.DeleteTag(body.GetProperty("uid").GetString()!);
+                            if (reqPath == "/api/locker/faulty") _db.SetFaulty(body.GetProperty("id").GetInt32(), body.GetProperty("faulty").GetBoolean());
+                            if (reqPath == "/api/locker/service") _db.SetServiceLockers(body.GetProperty("id1").GetInt32(), body.GetProperty("id2").GetInt32());
+                            if (reqPath == "/api/hardware") { var items = JsonSerializer.Deserialize<List<Locker>>(body.GetRawText(), _jsonOptions); foreach (var item in items!) _db.UpdateHardware(item.Id, item.ModuleId, item.ChannelId); }
+                            if (reqPath == "/api/open") { int lid = body.GetProperty("lockerId").GetInt32(); var l = _db.GetLockers().FirstOrDefault(x => x.Id == lid); if (l != null) await _hw.PulseRelayAsync(l.ModuleId, l.ChannelId); }
                         }
                         break;
 
@@ -142,63 +129,15 @@ public class WebServer
                             var uid = await _hw.WaitForNextTagAsync(15000);
                             json = JsonSerializer.Serialize(new { uid }, _jsonOptions);
                         }
-                        catch (TaskCanceledException)
-                        {
-                            json = JsonSerializer.Serialize(new { error = "Timeout" }, _jsonOptions);
-                        }
-                        break;
-
-                    case "/api/hardware":
-                        if (req.HttpMethod == "POST")
-                        {
-                            using var reader = new StreamReader(req.InputStream);
-                            var items = JsonSerializer.Deserialize<List<Locker>>(await reader.ReadToEndAsync(), _jsonOptions);
-                            foreach (var item in items!) _db.UpdateHardware(item.Id, item.ModuleId, item.ChannelId);
-                        }
-                        break;
-
-                    case "/api/locker/faulty":
-                        if (req.HttpMethod == "POST")
-                        {
-                            using var reader = new StreamReader(req.InputStream);
-                            var body = JsonSerializer.Deserialize<JsonElement>(await reader.ReadToEndAsync());
-                            _db.SetFaulty(body.GetProperty("id").GetInt32(), body.GetProperty("faulty").GetBoolean());
-                        }
-                        break;
-
-                    case "/api/locker/service":
-                        if (req.HttpMethod == "POST")
-                        {
-                            using var reader = new StreamReader(req.InputStream);
-                            var body = JsonSerializer.Deserialize<JsonElement>(await reader.ReadToEndAsync());
-                            _db.SetServiceLockers(body.GetProperty("id1").GetInt32(), body.GetProperty("id2").GetInt32());
-                        }
-                        break;
-
-                    case "/api/open":
-                        if (req.HttpMethod == "POST")
-                        {
-                            using var reader = new StreamReader(req.InputStream);
-                            var body = JsonSerializer.Deserialize<JsonElement>(await reader.ReadToEndAsync());
-                            int lockerId = body.GetProperty("lockerId").GetInt32();
-                            var locker = _db.GetLockers().FirstOrDefault(l => l.Id == lockerId);
-                            if (locker != null) await _hw.PulseRelayAsync(locker.ModuleId, locker.ChannelId);
-                        }
+                        catch { json = JsonSerializer.Serialize(new { error = "Timeout" }, _jsonOptions); }
                         break;
 
                     case "/api/restore-kiosk":
-                        if (req.HttpMethod == "POST")
+                        App.MainKiosk?.Dispatcher.Invoke(() =>
                         {
-                            App.MainKiosk?.Dispatcher.Invoke(() =>
-                            {
-                                App.MainKiosk.WindowState = WindowState.Maximized;
-                                if (!App.Hw.Settings.DemoMode) 
-                                {
-                                    App.MainKiosk.Topmost = true;
-                                    App.MainKiosk.Cursor = System.Windows.Input.Cursors.None;
-                                }
-                            });
-                        }
+                            App.MainKiosk.WindowState = WindowState.Maximized;
+                            if (!App.Hw.Settings.DemoMode) { App.MainKiosk.Topmost = true; App.MainKiosk.Cursor = System.Windows.Input.Cursors.None; }
+                        });
                         break;
                 }
 
