@@ -12,7 +12,9 @@ public class WebServer
     private readonly HttpListener _listener = new();
     private readonly Database _db;
     private readonly Hardware _hw;
-    private readonly string _port = "54321"; // ЛЕВЫЙ ПОРТ
+    
+    // Свойство, в котором хранится реальный рабочий порт
+    public string Port { get; private set; } = "50000"; 
 
     public WebServer(Database db, Hardware hw)
     {
@@ -22,24 +24,36 @@ public class WebServer
 
     public void Start()
     {
-        try
+        bool started = false;
+        
+        // Пытаемся найти свободный порт в диапазоне 50000-50020
+        for (int p = 50000; p <= 50020; p++)
         {
-            _listener.Prefixes.Clear();
-            _listener.Prefixes.Add($"http://localhost:{_port}/");
-            _listener.Prefixes.Add($"http://127.0.0.1:{_port}/");
-            _listener.Prefixes.Add($"http://*:{_port}/"); 
-            
-            _listener.Start();
-            Logger.Log($"Веб-сервер успешно запущен на порту {_port}");
-            Logger.Log($"Путь к EXE: {Environment.ProcessPath}");
+            try
+            {
+                _listener.Prefixes.Clear();
+                // Слушаем только localhost (127.0.0.1), чтобы избежать блокировок брандмауэра
+                _listener.Prefixes.Add($"http://127.0.0.1:{p}/");
+                _listener.Prefixes.Add($"http://localhost:{p}/");
+                
+                _listener.Start();
+                Port = p.ToString();
+                started = true;
+                Logger.Log($"Веб-сервер успешно запущен на порту {Port}");
+                break;
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"Порт {p} занят или недоступен. Пробуем следующий... ({ex.Message})");
+            }
         }
-        catch (Exception ex)
+
+        if (!started)
         {
-            Logger.LogError("WebServer.Start", ex);
-            MessageBox.Show($"Не удалось запустить веб-сервер на порту {_port}.\n\n" +
-                            $"Убедитесь, что программа запущена от имени Администратора.\n" +
-                            $"Текст ошибки: {ex.Message}", 
-                            "Ошибка веб-сервера", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Logger.LogError("WebServer.Start", new Exception("Не удалось найти свободный порт (50000-50020)."));
+            MessageBox.Show("Не удалось запустить веб-сервер. Все порты в диапазоне 50000-50020 заняты.\n" +
+                            "Попробуйте перезагрузить компьютер или закрыть лишние программы.",
+                            "Ошибка веб-сервера", MessageBoxButton.OK, MessageBoxImage.Error);
             return;
         }
         
