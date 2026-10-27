@@ -13,11 +13,19 @@ public class Config
     public ModbusConfig Modbus { get; set; } = new();
     public RfidConfig Rfid { get; set; } = new();
     public WebConfig Web { get; set; } = new();
+    public LockerConfig LockerConfig { get; set; } = new();
 }
 
 public class ModbusConfig { public string Port { get; set; } = "COM3"; public int BaudRate { get; set; } = 9600; }
 public class RfidConfig { public string ReaderName { get; set; } = ""; }
 public class WebConfig { public int Port { get; set; } = 5000; }
+
+public class LockerConfig
+{
+    public int TotalCells { get; set; } = 62;
+    public int ServiceCellThreshold { get; set; } = 60; // ячейки с Id > threshold — сервисные
+    public int Module1MaxCell { get; set; } = 32;        // ячейки 1..N — модуль 1, остальные — модуль 2
+}
 
 public class Hardware : IDisposable
 {

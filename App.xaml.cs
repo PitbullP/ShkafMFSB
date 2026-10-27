@@ -28,10 +28,11 @@ public partial class App : Application
             Logger.Log("=== ЗАПУСК ПРОГРАММЫ ===");
             base.OnStartup(e);
             
-            Db = new Database();
-            Db.Initialize();
-            
             Hw = new Hardware();
+
+            Db = new Database();
+            Db.Initialize(Hw.Settings.LockerConfig);
+
             Hw.ConnectModbus();
             Hw.StartRfid();
 

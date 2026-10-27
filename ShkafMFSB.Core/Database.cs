@@ -23,8 +23,9 @@ public class Database
 
     private SqliteConnection Open() { var c = new SqliteConnection(_connStr); c.Open(); return c; }
 
-    public void Initialize()
+    public void Initialize(LockerConfig? lockerConfig = null)
     {
+        var cfg = ValidateLockerConfig(lockerConfig);
         using var c = Open();
         c.Execute(@"
             CREATE TABLE IF NOT EXISTS Employees (Id INTEGER PRIMARY KEY AUTOINCREMENT, FullName TEXT NOT NULL);
@@ -54,11 +55,11 @@ public class Database
         var count = c.ExecuteScalar<int>("SELECT COUNT(*) FROM Lockers");
         if (count == 0)
         {
-            for (int i = 1; i <= 62; i++)
+            for (int i = 1; i <= cfg.TotalCells; i++)
             {
-                bool isService = i > 60;
-                int mod = i <= 32 ? 1 : 2;
-                int ch = (i - 1) % 32;
+                bool isService = i > cfg.ServiceCellThreshold;
+                int mod = i <= cfg.Module1MaxCell ? 1 : 2;
+                int ch = (i - 1) % cfg.Module1MaxCell;
                 c.Execute("INSERT INTO Lockers (Id, IsService, IsFaulty, ModuleId, ChannelId) VALUES (@id, @s, 0, @m, @ch)",
                     new { id = i, s = isService ? 1 : 0, m = mod, ch = ch });
             }
@@ -82,6 +83,16 @@ public class Database
         using var c = Open();
         c.Execute("UPDATE Settings SET Value = @p WHERE Key = 'AdminPin'",
             new { p = HashPin(newPin) });
+    }
+
+    private static LockerConfig ValidateLockerConfig(LockerConfig? cfg)
+    {
+        cfg ??= new LockerConfig();
+        if (cfg.TotalCells <= 0) cfg.TotalCells = 62;
+        if (cfg.Module1MaxCell <= 0 || cfg.Module1MaxCell > cfg.TotalCells) cfg.Module1MaxCell = cfg.TotalCells / 2;
+        if (cfg.ServiceCellThreshold < 0 || cfg.ServiceCellThreshold > cfg.TotalCells)
+            cfg.ServiceCellThreshold = Math.Max(0, cfg.TotalCells - 2);
+        return cfg;
     }
 
     private static string HashPin(string pin)
