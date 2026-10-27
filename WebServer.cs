@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Windows;
 using System.Reflection;
+using System.Diagnostics;
 
 namespace ShkafMFSB;
 
@@ -14,7 +15,7 @@ public class WebServer
     private readonly Hardware _hw;
     
     // Свойство, в котором хранится реальный рабочий порт
-    public string Port { get; private set; } = "50000"; 
+    public string Port { get; private set; } = "5000"; 
 
     public WebServer(Database db, Hardware hw)
     {
@@ -26,13 +27,16 @@ public class WebServer
     {
         bool started = false;
         
-        // Пытаемся найти свободный порт в диапазоне 50000-50020
-        for (int p = 50000; p <= 50020; p++)
+        // Берем начальный порт из настроек (appsettings.json)
+        int startPort = _hw.Settings.Web.Port;
+        if (startPort <= 0) startPort = 5000;
+        
+        // Пытаемся запуститься на выбранном порту. Если занят - ищем следующий (+1, +2...)
+        for (int p = startPort; p <= startPort + 20; p++)
         {
             try
             {
                 _listener.Prefixes.Clear();
-                // Слушаем только localhost (127.0.0.1), чтобы избежать блокировок брандмауэра
                 _listener.Prefixes.Add($"http://127.0.0.1:{p}/");
                 _listener.Prefixes.Add($"http://localhost:{p}/");
                 
@@ -50,9 +54,9 @@ public class WebServer
 
         if (!started)
         {
-            Logger.LogError("WebServer.Start", new Exception("Не удалось найти свободный порт (50000-50020)."));
-            MessageBox.Show("Не удалось запустить веб-сервер. Все порты в диапазоне 50000-50020 заняты.\n" +
-                            "Попробуйте перезагрузить компьютер или закрыть лишние программы.",
+            Logger.LogError("WebServer.Start", new Exception($"Не удалось найти свободный порт (диапазон {startPort}-{startPort + 20})."));
+            MessageBox.Show($"Не удалось запустить веб-сервер. Все порты в диапазоне {startPort}-{startPort + 20} заняты.\n" +
+                            "Попробуйте изменить порт в файле appsettings.json.",
                             "Ошибка веб-сервера", MessageBoxButton.OK, MessageBoxImage.Error);
             return;
         }
