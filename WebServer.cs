@@ -51,7 +51,10 @@ public class WebServer : IDisposable
                 try
                 {
                     var ctx = await _listener.GetContextAsync();
-                    _ = Task.Run(() => HandleRequest(ctx));
+                    _ = Task.Run(() => HandleRequest(ctx))
+                        .ContinueWith(
+                            t => Logger.LogError("WebServer.HandleRequest (unobserved)", t.Exception!),
+                            TaskContinuationOptions.OnlyOnFaulted);
                 }
                 catch (HttpListenerException) { break; }
                 catch (ObjectDisposedException) { break; }
