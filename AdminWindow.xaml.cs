@@ -17,8 +17,9 @@ public partial class AdminWindow : Window
 
     private void Login_Click(object sender, RoutedEventArgs e)
     {
-        if (PinBox.Password == "0000")
+        if (App.Db.VerifyPin(PinBox.Password))
         {
+            PinBox.Clear();
             PinPanel.Visibility = Visibility.Collapsed;
             MainPanel.Visibility = Visibility.Visible;
             LoadData();
@@ -26,6 +27,7 @@ public partial class AdminWindow : Window
         }
         else
         {
+            PinBox.Clear();
             MessageBox.Show("Неверный PIN", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }

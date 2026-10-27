@@ -1,11 +1,17 @@
 using Microsoft.Data.Sqlite;
 using Dapper;
 using System.IO;
+using System.Security.Cryptography;
 
 namespace ShkafMFSB;
 
 public class Database
 {
+    private const int PinHashIterations = 100_000;
+    private const int PinSaltSize = 16;
+    private const int PinHashSize = 32;
+    private const int PinParts = 3;
+
     private readonly string _connStr;
     public string DbPath { get; }
 
@@ -27,9 +33,23 @@ public class Database
             CREATE TABLE IF NOT EXISTS Logs (Id INTEGER PRIMARY KEY AUTOINCREMENT, Timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, EmployeeId INTEGER, LockerId INTEGER, Action TEXT, Details TEXT);
             CREATE TABLE IF NOT EXISTS Settings (Key TEXT PRIMARY KEY, Value TEXT);");
 
-        // Установка PIN по умолчанию
+        // Установка PIN по умолчанию (хранится только хеш)
         var pinExists = c.ExecuteScalar<int>("SELECT COUNT(*) FROM Settings WHERE Key = 'AdminPin'");
-        if (pinExists == 0) c.Execute("INSERT INTO Settings (Key, Value) VALUES ('AdminPin', '0000')");
+        if (pinExists == 0)
+        {
+            c.Execute("INSERT INTO Settings (Key, Value) VALUES ('AdminPin', @v)",
+                new { v = HashPin("0000") });
+        }
+        else
+        {
+            // Миграция legacy-БД: если в Settings лежит открытый PIN — хешируем его
+            var stored = c.ExecuteScalar<string>("SELECT Value FROM Settings WHERE Key = 'AdminPin'");
+            if (!string.IsNullOrEmpty(stored) && !IsHashedPin(stored))
+            {
+                c.Execute("UPDATE Settings SET Value = @v WHERE Key = 'AdminPin'",
+                    new { v = HashPin(stored) });
+            }
+        }
 
         var count = c.ExecuteScalar<int>("SELECT COUNT(*) FROM Lockers");
         if (count == 0)
@@ -39,23 +59,74 @@ public class Database
                 bool isService = i > 60;
                 int mod = i <= 32 ? 1 : 2;
                 int ch = (i - 1) % 32;
-                c.Execute("INSERT INTO Lockers (Id, IsService, IsFaulty, ModuleId, ChannelId) VALUES (@id, @s, 0, @m, @ch)", 
+                c.Execute("INSERT INTO Lockers (Id, IsService, IsFaulty, ModuleId, ChannelId) VALUES (@id, @s, 0, @m, @ch)",
                     new { id = i, s = isService ? 1 : 0, m = mod, ch = ch });
             }
         }
     }
 
-    // === НАСТРОЙКИ ===
+    // === НАСТРОЙКИ (PIN) ===
     public bool VerifyPin(string pin)
     {
+        if (pin is null) return false;
         using var c = Open();
-        return c.ExecuteScalar<string>("SELECT Value FROM Settings WHERE Key = 'AdminPin'") == pin;
+        var stored = c.ExecuteScalar<string>("SELECT Value FROM Settings WHERE Key = 'AdminPin'");
+        return VerifyPinHash(pin, stored);
     }
 
     public void UpdatePin(string newPin)
     {
+        if (string.IsNullOrWhiteSpace(newPin))
+            throw new ArgumentException("PIN не может быть пустым", nameof(newPin));
+
         using var c = Open();
-        c.Execute("UPDATE Settings SET Value = @p WHERE Key = 'AdminPin'", new { p = newPin });
+        c.Execute("UPDATE Settings SET Value = @p WHERE Key = 'AdminPin'",
+            new { p = HashPin(newPin) });
+    }
+
+    private static string HashPin(string pin)
+    {
+        var salt = RandomNumberGenerator.GetBytes(PinSaltSize);
+        var hash = Rfc2898DeriveBytes.Pbkdf2(
+            password: pin,
+            salt: salt,
+            iterations: PinHashIterations,
+            hashAlgorithm: HashAlgorithmName.SHA256,
+            outputLength: PinHashSize);
+
+        return $"{PinHashIterations}.{Convert.ToBase64String(salt)}.{Convert.ToBase64String(hash)}";
+    }
+
+    private static bool VerifyPinHash(string pin, string? stored)
+    {
+        if (string.IsNullOrEmpty(stored)) return false;
+
+        var parts = stored.Split('.');
+        if (parts.Length != PinParts || !int.TryParse(parts[0], out var iterations) || iterations <= 0)
+            return false;
+
+        try
+        {
+            var salt = Convert.FromBase64String(parts[1]);
+            var expected = Convert.FromBase64String(parts[2]);
+            var actual = Rfc2898DeriveBytes.Pbkdf2(
+                password: pin,
+                salt: salt,
+                iterations: iterations,
+                hashAlgorithm: HashAlgorithmName.SHA256,
+                outputLength: expected.Length);
+            return CryptographicOperations.FixedTimeEquals(actual, expected);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+    }
+
+    private static bool IsHashedPin(string value)
+    {
+        var parts = value.Split('.');
+        return parts.Length == PinParts && int.TryParse(parts[0], out _);
     }
 
     public string BackupDb()
@@ -72,7 +143,7 @@ public class Database
         var sql = @"SELECT e.Id, e.FullName, (SELECT COUNT(*) FROM RfidTags WHERE EmployeeId = e.Id) as TagCount FROM Employees e";
         if (!string.IsNullOrEmpty(search)) sql += " WHERE e.FullName LIKE @s";
         sql += " ORDER BY e.FullName";
-        
+
         var list = c.Query<Employee>(sql, new { s = $"%{search}%" }).ToList();
         foreach (var e in list)
         {
