@@ -278,7 +278,7 @@ public class WebServer
                             if (reqPath == "/api/tag/delete") _db.DeleteTag(V.Str(body, "uid", 4, 64));
                             if (reqPath == "/api/locker/faulty") _db.SetFaulty(V.Int(body, "id", 1), V.Bool(body, "faulty"));
                             if (reqPath == "/api/locker/service") _db.SetServiceLockers(V.Int(body, "id1", 1), V.Int(body, "id2", 1));
-                            if (reqPath == "/api/open") { int lid = V.Int(body, "lockerId", 1); var l = _db.GetLockers().FirstOrDefault(x => x.Id == lid); if (l != null) await _hw.PulseRelayAsync(l.ModuleId, l.ChannelId); }
+                            if (reqPath == "/api/open") { int lid = V.Int(body, "lockerId", 1); var l = _db.GetLockers().FirstOrDefault(x => x.Id == lid); if (l != null) { bool ok = await _hw.PulseRelayAsync(l.ModuleId, l.ChannelId); if (!ok) { status = 500; json = JsonSerializer.Serialize(new { error = "Не удалось открыть ячейку" }, _jsonOptions); } } }
                         }
                         break;
 

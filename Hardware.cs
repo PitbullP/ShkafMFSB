@@ -50,21 +50,40 @@ public class Hardware
         catch (Exception ex) { Logger.LogError("Hardware.Connect (Modbus)", ex); return false; }
     }
 
-    public async Task PulseRelayAsync(int module, int channel, int pulseMs = 5000)
+    public async Task<bool> PulseRelayAsync(int module, int channel, int pulseMs = 5000)
     {
-        if (Settings.DemoMode) { await Task.Delay(200); return; }
-        if (_master == null) return;
-        
-        await Task.Run(async () =>
+        if (Settings.DemoMode) { await Task.Delay(200); return true; }
+        if (_master == null)
+        {
+            Logger.LogError("Hardware.PulseRelay (Modbus master не подключён)",
+                new InvalidOperationException($"module={module}, channel={channel}"));
+            return false;
+        }
+
+        const int maxAttempts = 3;
+        int[] backoffMs = { 100, 300, 900 };
+
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
         {
             try
             {
-                _master.WriteSingleCoil((byte)module, (ushort)channel, true);
-                await Task.Delay(pulseMs);
-                _master.WriteSingleCoil((byte)module, (ushort)channel, false);
+                await Task.Run(async () =>
+                {
+                    _master.WriteSingleCoil((byte)module, (ushort)channel, true);
+                    await Task.Delay(pulseMs);
+                    _master.WriteSingleCoil((byte)module, (ushort)channel, false);
+                });
+                if (attempt > 1) Logger.Log($"Hardware.PulseRelay OK module={module} channel={channel} (попытка {attempt})");
+                return true;
             }
-            catch (Exception ex) { Logger.LogError($"Hardware.PulseRelay module={module} channel={channel}", ex); }
-        });
+            catch (Exception ex)
+            {
+                Logger.LogError($"Hardware.PulseRelay module={module} channel={channel} (попытка {attempt}/{maxAttempts})", ex);
+                if (attempt < maxAttempts)
+                    await Task.Delay(backoffMs[attempt - 1]);
+            }
+        }
+        return false;
     }
 
     public event Action<string>? TagScanned;

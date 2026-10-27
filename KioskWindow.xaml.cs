@@ -72,11 +72,19 @@ public partial class KioskWindow : Window
                 }
                 else
                 {
-                    App.Db.AddLog(emp.Id, locker.Id, "GRANTED", uid);
-                    SetState("granted", emp.FullName, $"Ячейка № {locker.Id} открыта", "Icon.Success", "#1B7A3D");
-                    
-                    await App.Hw.PulseRelayAsync(locker.ModuleId, locker.ChannelId);
-                    await Task.Delay(5000);
+                    bool opened = await App.Hw.PulseRelayAsync(locker.ModuleId, locker.ChannelId);
+                    if (opened)
+                    {
+                        App.Db.AddLog(emp.Id, locker.Id, "GRANTED", uid);
+                        SetState("granted", emp.FullName, $"Ячейка № {locker.Id} открыта", "Icon.Success", "#1B7A3D");
+                        await Task.Delay(5000);
+                    }
+                    else
+                    {
+                        App.Db.AddLog(emp.Id, locker.Id, "OPEN_FAILED", uid);
+                        SetState("denied", emp.FullName, "Не удалось открыть ячейку. Обратитесь к администратору", "Icon.Denied", "#B01E1E");
+                        await Task.Delay(4000);
+                    }
                 }
             }
         }

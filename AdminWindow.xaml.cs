@@ -227,7 +227,12 @@ public partial class AdminWindow : Window
         }
 
         var openBtn = new Button { Content = "Открыть вручную (Тест)", Margin = new Thickness(0, 20, 0, 0), Style = (Style)FindResource("PrimaryBtn") };
-        openBtn.Click += async (s, e) => await App.Hw.PulseRelayAsync(_selectedLocker.ModuleId, _selectedLocker.ChannelId);
+        openBtn.Click += async (s, e) =>
+        {
+            if (_selectedLocker == null) return;
+            bool ok = await App.Hw.PulseRelayAsync(_selectedLocker.ModuleId, _selectedLocker.ChannelId);
+            if (!ok) MessageBox.Show($"Не удалось открыть ячейку № {_selectedLocker.Id} (проверьте Modbus-связь)", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+        };
         LockerDetailsPanel.Children.Add(openBtn);
     }
 
@@ -258,8 +263,11 @@ public partial class AdminWindow : Window
     // ═══════════════════════════════════════════════════════════════
     private async void TestRelay_Click(object sender, RoutedEventArgs e)
     {
-        if ((sender as Button)?.Tag is Locker l) 
-            await App.Hw.PulseRelayAsync(l.ModuleId, l.ChannelId);
+        if ((sender as Button)?.Tag is Locker l)
+        {
+            bool ok = await App.Hw.PulseRelayAsync(l.ModuleId, l.ChannelId);
+            if (!ok) MessageBox.Show($"Не удалось открыть ячейку № {l.Id} (проверьте Modbus-связь)", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     private void SaveHardware_Click(object sender, RoutedEventArgs e)
