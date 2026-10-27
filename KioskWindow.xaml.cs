@@ -106,10 +106,7 @@ public partial class KioskWindow : Window
         if (_adminClicks >= 5)
         {
             _adminClicks = 0;
-            
-            // Берем порт, который выбрал сервер
             string url = $"http://localhost:{App.Server.Port}";
-            
             this.WindowState = WindowState.Minimized;
             Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); 
         }
