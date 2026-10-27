@@ -13,9 +13,10 @@ public class WebServer
     private readonly HttpListener _listener = new();
     private readonly Database _db;
     private readonly Hardware _hw;
-    private readonly string _port = "50000"; 
     
-    // Настройки JSON: превращаем Id в id, FullName в fullName и т.д.
+    // Публичное свойство для доступа из KioskWindow
+    public string Port { get; private set; } = "50000"; 
+
     private readonly JsonSerializerOptions _jsonOptions = new() 
     { 
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase 
@@ -30,6 +31,8 @@ public class WebServer
     public void Start()
     {
         bool started = false;
+        
+        // Автопоиск свободного порта
         for (int p = 50000; p <= 50020; p++)
         {
             try
@@ -39,15 +42,19 @@ public class WebServer
                 _listener.Prefixes.Add($"http://localhost:{p}/");
                 
                 _listener.Start();
-                _port = p.ToString();
+                Port = p.ToString();
                 started = true;
-                Logger.Log($"Веб-сервер успешно запущен на порту {_port}");
+                Logger.Log($"Веб-сервер успешно запущен на порту {Port}");
                 break;
             }
-            catch { /* Порт занят */ }
+            catch { /* Порт занят, пробуем следующий */ }
         }
 
-        if (!started) return;
+        if (!started)
+        {
+            Logger.Log("Не удалось запустить веб-сервер.");
+            return;
+        }
         
         Task.Run(async () =>
         {
@@ -133,6 +140,21 @@ public class WebServer
                             int lockerId = body.GetProperty("lockerId").GetInt32();
                             var locker = _db.GetLockers().FirstOrDefault(l => l.Id == lockerId);
                             if (locker != null) await _hw.PulseRelayAsync(locker.ModuleId, locker.ChannelId);
+                        }
+                        break;
+
+                    case "/api/restore-kiosk":
+                        if (req.HttpMethod == "POST")
+                        {
+                            App.MainKiosk?.Dispatcher.Invoke(() =>
+                            {
+                                App.MainKiosk.WindowState = WindowState.Maximized;
+                                if (!App.Hw.Settings.DemoMode) 
+                                {
+                                    App.MainKiosk.Topmost = true;
+                                    App.MainKiosk.Cursor = System.Windows.Input.Cursors.None;
+                                }
+                            });
                         }
                         break;
                 }
