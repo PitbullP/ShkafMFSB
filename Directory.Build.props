@@ -1,0 +1,27 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+
+    <!-- Разрешает сборку WPF-проекта на Linux/macOS (запуск всё равно только Windows) -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+
+    <!--
+      TODO (этап 5): после устранения предупреждений установить true.
+      Пока false — иначе сборка сразу упадёт на существующих warning.
+    -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+
+    <NoWarn>$(NoWarn);NU1701</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('.Tests'))">
+    <IsPackable>false</IsPackable>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+  </PropertyGroup>
+</Project>
