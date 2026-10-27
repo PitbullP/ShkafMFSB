@@ -12,10 +12,12 @@ public class Config
     public bool DemoMode { get; set; } = true;
     public ModbusConfig Modbus { get; set; } = new();
     public RfidConfig Rfid { get; set; } = new();
+    public WebConfig Web { get; set; } = new(); // Новый раздел
 }
 
 public class ModbusConfig { public string Port { get; set; } = "COM3"; public int BaudRate { get; set; } = 9600; }
 public class RfidConfig { public string ReaderName { get; set; } = ""; }
+public class WebConfig { public int Port { get; set; } = 5000; } // Настройка порта
 
 public class Hardware
 {
