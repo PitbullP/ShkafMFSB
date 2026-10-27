@@ -39,7 +39,6 @@ public class Database
         }
     }
 
-    // СОТРУДНИКИ
     public List<Employee> GetEmployees(string search = "")
     {
         using var c = Open();
@@ -56,27 +55,10 @@ public class Database
         return list;
     }
 
-    public void AddEmployee(string name)
-    {
-        using var c = Open();
-        c.Execute("INSERT INTO Employees (FullName) VALUES (@n)", new { n = name });
-    }
+    public void AddEmployee(string name) { using var c = Open(); c.Execute("INSERT INTO Employees (FullName) VALUES (@n)", new { n = name }); }
+    public void UpdateEmployee(int id, string name) { using var c = Open(); c.Execute("UPDATE Employees SET FullName = @n WHERE Id = @id", new { n = name, id }); }
+    public void DeleteEmployee(int id) { using var c = Open(); c.Execute("UPDATE Lockers SET EmployeeId = NULL WHERE EmployeeId = @id", new { id }); c.Execute("DELETE FROM RfidTags WHERE EmployeeId = @id", new { id }); c.Execute("DELETE FROM Employees WHERE Id = @id", new { id }); }
 
-    public void UpdateEmployee(int id, string name)
-    {
-        using var c = Open();
-        c.Execute("UPDATE Employees SET FullName = @n WHERE Id = @id", new { n = name, id = id });
-    }
-
-    public void DeleteEmployee(int id)
-    {
-        using var c = Open();
-        c.Execute("UPDATE Lockers SET EmployeeId = NULL WHERE EmployeeId = @id", new { id });
-        c.Execute("DELETE FROM RfidTags WHERE EmployeeId = @id", new { id });
-        c.Execute("DELETE FROM Employees WHERE Id = @id", new { id });
-    }
-
-    // ЯЧЕЙКИ
     public List<Locker> GetLockers()
     {
         using var c = Open();
@@ -85,66 +67,21 @@ public class Database
             FROM Lockers l LEFT JOIN Employees e ON e.Id = l.EmployeeId ORDER BY l.Id").ToList();
     }
 
-    public void AssignLocker(int lockerId, int? employeeId)
-    {
-        using var c = Open();
-        c.Execute("UPDATE Lockers SET EmployeeId = @e WHERE Id = @id", new { e = employeeId, id = lockerId });
+    public void AssignLocker(int lockerId, int? employeeId) { using var c = Open(); c.Execute("UPDATE Lockers SET EmployeeId = @e WHERE Id = @id", new { e = employeeId, id = lockerId }); }
+    public void UpdateHardware(int id, int module, int channel) { using var c = Open(); c.Execute("UPDATE Lockers SET ModuleId = @m, ChannelId = @ch WHERE Id = @id", new { m = module, ch = channel, id }); }
+    public void SetFaulty(int id, bool isFaulty) { using var c = Open(); c.Execute("UPDATE Lockers SET IsFaulty = @f WHERE Id = @id", new { f = isFaulty ? 1 : 0, id }); }
+    
+    public void SetServiceLockers(int id1, int id2) 
+    { 
+        using var c = Open(); 
+        c.Execute("UPDATE Lockers SET IsService = 0"); 
+        c.Execute("UPDATE Lockers SET IsService = 1, EmployeeId = NULL WHERE Id IN (@id1, @id2)", new { id1, id2 }); 
     }
 
-    public void UpdateHardware(int id, int module, int channel)
-    {
-        using var c = Open();
-        c.Execute("UPDATE Lockers SET ModuleId = @m, ChannelId = @ch WHERE Id = @id", new { m = module, ch = channel, id });
-    }
+    public List<RfidTag> GetTags() { using var c = Open(); return c.Query<RfidTag>(@"SELECT t.Uid, t.EmployeeId, t.Description, e.FullName as OwnerName FROM RfidTags t JOIN Employees e ON e.Id = t.EmployeeId").ToList(); }
+    public void AddTag(string uid, int employeeId) { using var c = Open(); c.Execute("INSERT OR REPLACE INTO RfidTags (Uid, EmployeeId, Description) VALUES (@u, @e, 'Основная')", new { u = uid, e = employeeId }); }
+    public void DeleteTag(string uid) { using var c = Open(); c.Execute("DELETE FROM RfidTags WHERE Uid = @u", new { u = uid }); }
 
-    public void SetFaulty(int id, bool isFaulty)
-    {
-        using var c = Open();
-        c.Execute("UPDATE Lockers SET IsFaulty = @f WHERE Id = @id", new { f = isFaulty ? 1 : 0, id });
-    }
-
-    public void SetServiceLockers(int id1, int id2)
-    {
-        using var c = Open();
-        c.Execute("UPDATE Lockers SET IsService = 0"); // Сбрасываем старые
-        c.Execute("UPDATE Lockers SET IsService = 1, EmployeeId = NULL WHERE Id IN (@id1, @id2)", new { id1, id2 });
-    }
-
-    // МЕТКИ
-    public List<RfidTag> GetTags()
-    {
-        using var c = Open();
-        return c.Query<RfidTag>(@"
-            SELECT t.Uid, t.EmployeeId, t.Description, e.FullName as OwnerName 
-            FROM RfidTags t JOIN Employees e ON e.Id = t.EmployeeId").ToList();
-    }
-
-    public void AddTag(string uid, int employeeId)
-    {
-        using var c = Open();
-        c.Execute("INSERT OR REPLACE INTO RfidTags (Uid, EmployeeId, Description) VALUES (@u, @e, 'Основная')", new { u = uid, e = employeeId });
-    }
-
-    public void DeleteTag(string uid)
-    {
-        using var c = Open();
-        c.Execute("DELETE FROM RfidTags WHERE Uid = @u", new { u = uid });
-    }
-
-    // ЛОГИ
-    public void AddLog(int? empId, int? lockerId, string action, string details = "")
-    {
-        using var c = Open();
-        c.Execute("INSERT INTO Logs (EmployeeId, LockerId, Action, Details) VALUES (@e, @l, @a, @d)", 
-            new { e = empId, l = lockerId, a = action, d = details });
-    }
-
-    public List<LogEntry> GetLogs()
-    {
-        using var c = Open();
-        return c.Query<LogEntry>(@"
-            SELECT a.Id, a.Timestamp, e.FullName as EmployeeName, a.Action, a.Details as TagUid, a.LockerId 
-            FROM Logs a LEFT JOIN Employees e ON e.Id = a.EmployeeId 
-            ORDER BY a.Id DESC LIMIT 100").ToList();
-    }
+    public void AddLog(int? empId, int? lockerId, string action, string details = "") { using var c = Open(); c.Execute("INSERT INTO Logs (EmployeeId, LockerId, Action, Details) VALUES (@e, @l, @a, @d)", new { e = empId, l = lockerId, a = action, d = details }); }
+    public List<LogEntry> GetLogs() { using var c = Open(); return c.Query<LogEntry>(@"SELECT a.Id, a.Timestamp, e.FullName as EmployeeName, a.Action, a.Details as TagUid, a.LockerId FROM Logs a LEFT JOIN Employees e ON e.Id = a.EmployeeId ORDER BY a.Id DESC LIMIT 100").ToList(); }
 }
