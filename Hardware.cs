@@ -47,7 +47,7 @@ public class Hardware
             _master.Transport.ReadTimeout = 500;
             return true;
         }
-        catch { return false; }
+        catch (Exception ex) { Logger.LogError("Hardware.Connect (Modbus)", ex); return false; }
     }
 
     public async Task PulseRelayAsync(int module, int channel, int pulseMs = 5000)
@@ -63,7 +63,7 @@ public class Hardware
                 await Task.Delay(pulseMs);
                 _master.WriteSingleCoil((byte)module, (ushort)channel, false);
             }
-            catch { /* Ignore */ }
+            catch (Exception ex) { Logger.LogError($"Hardware.PulseRelay module={module} channel={channel}", ex); }
         });
     }
 
@@ -149,7 +149,7 @@ public class Hardware
                     Thread.Sleep(300);
                 }
             }
-            catch { /* Log or ignore */ }
+            catch (Exception ex) { Logger.LogError("Hardware.RfidScan", ex); }
         });
     }
 }

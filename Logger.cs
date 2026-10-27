@@ -30,7 +30,7 @@ public static partial class Logger
                 File.AppendAllText(LogPath, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {cleanMessage}{Environment.NewLine}");
             }
         }
-        catch { /* Игнорируем ошибки записи лога */ }
+        catch { /* best-effort: ошибка логирования не должна вызывать рекурсию/падение */ }
     }
 
     public static void LogError(string context, Exception ex)

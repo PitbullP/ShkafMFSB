@@ -38,7 +38,7 @@ public class WebServer
                 started = true;
                 Logger.Log($"Веб-сервер запущен на порту {Port}");
                 break;
-            } catch { }
+            } catch (Exception ex) { Logger.LogError($"WebServer.Start port={p}", ex); }
         }
 
         if (!started) return;
@@ -47,7 +47,14 @@ public class WebServer
         {
             while (_listener.IsListening)
             {
-                try { var ctx = await _listener.GetContextAsync(); _ = Task.Run(() => HandleRequest(ctx)); } catch { }
+                try
+                {
+                    var ctx = await _listener.GetContextAsync();
+                    _ = Task.Run(() => HandleRequest(ctx));
+                }
+                catch (HttpListenerException) { break; }
+                catch (ObjectDisposedException) { break; }
+                catch (Exception ex) { Logger.LogError("WebServer.GetContext", ex); }
             }
         });
     }
@@ -299,7 +306,7 @@ public class WebServer
                             var uid = await _hw.WaitForNextTagAsync(15000);
                             json = JsonSerializer.Serialize(new { uid }, _jsonOptions);
                         }
-                        catch { json = JsonSerializer.Serialize(new { error = "Timeout" }, _jsonOptions); }
+                        catch (Exception ex) { Logger.Log("TagScan timeout: " + ex.Message); json = JsonSerializer.Serialize(new { error = "Timeout" }, _jsonOptions); }
                         break;
 
                     case "/api/restore-kiosk":
