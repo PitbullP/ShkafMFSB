@@ -109,75 +109,9 @@ public class WebServer : IDisposable
         return _tokens.IsValid(header.Substring(prefix.Length).Trim());
     }
 
-    private sealed class ValidationException : Exception
-    {
-        public ValidationException(string message) : base(message) { }
-    }
-
-    private static class V
-    {
-        public static string Str(JsonElement body, string name, int min = 1, int max = 200)
-        {
-            if (!body.TryGetProperty(name, out var el) || el.ValueKind != JsonValueKind.String)
-                throw new ValidationException($"Поле '{name}' обязательно и должно быть строкой");
-            var s = el.GetString() ?? "";
-            if (s.Trim().Length < min)
-                throw new ValidationException($"Поле '{name}' не может быть короче {min} символов");
-            if (s.Length > max)
-                throw new ValidationException($"Поле '{name}' не может быть длиннее {max} символов");
-            return s.Trim();
-        }
-
-        public static int Int(JsonElement body, string name, int min = int.MinValue, int max = int.MaxValue)
-        {
-            if (!body.TryGetProperty(name, out var el) || el.ValueKind != JsonValueKind.Number)
-                throw new ValidationException($"Поле '{name}' обязательно и должно быть числом");
-            if (!el.TryGetInt32(out var v))
-                throw new ValidationException($"Поле '{name}' должно быть 32-битным целым");
-            if (v < min || v > max)
-                throw new ValidationException($"Поле '{name}' должно быть в диапазоне [{min}..{max}]");
-            return v;
-        }
-
-        public static int? NullableInt(JsonElement body, string name, int min = int.MinValue, int max = int.MaxValue)
-        {
-            if (!body.TryGetProperty(name, out var el) || el.ValueKind == JsonValueKind.Null)
-                return null;
-            if (el.ValueKind != JsonValueKind.Number || !el.TryGetInt32(out var v))
-                throw new ValidationException($"Поле '{name}' должно быть числом или null");
-            if (v < min || v > max)
-                throw new ValidationException($"Поле '{name}' должно быть в диапазоне [{min}..{max}]");
-            return v;
-        }
-
-        public static bool Bool(JsonElement body, string name)
-        {
-            if (!body.TryGetProperty(name, out var el))
-                throw new ValidationException($"Поле '{name}' обязательно");
-            if (el.ValueKind == JsonValueKind.True) return true;
-            if (el.ValueKind == JsonValueKind.False) return false;
-            throw new ValidationException($"Поле '{name}' должно быть bool");
-        }
-    }
-
-    private static async Task<JsonElement> ReadJsonBodyAsync(HttpListenerRequest req)
-    {
-        using var reader = new StreamReader(req.InputStream, req.ContentEncoding ?? Encoding.UTF8);
-        var text = await reader.ReadToEndAsync();
-        if (string.IsNullOrWhiteSpace(text))
-            throw new ValidationException("Тело запроса пустое");
-        try
-        {
-            var el = JsonSerializer.Deserialize<JsonElement>(text);
-            if (el.ValueKind != JsonValueKind.Object)
-                throw new ValidationException("Тело запроса должно быть JSON-объектом");
-            return el;
-        }
-        catch (JsonException jex)
-        {
-            throw new ValidationException("Некорректный JSON: " + jex.Message);
-        }
-    }
+    // Валидация вынесена в Core: ApiValidation.cs (ValidationException, V, JsonBodyReader)
+    private static Task<JsonElement> ReadJsonBodyAsync(HttpListenerRequest req)
+        => JsonBodyReader.ReadObjectAsync(req.InputStream, req.ContentEncoding);
 
     private void ApplyCors(HttpListenerRequest req, HttpListenerResponse res)
     {
@@ -276,13 +210,13 @@ public class WebServer : IDisposable
                         {
                             var body = await ReadJsonBodyAsync(req);
                             if (reqPath == "/api/employee/add") _db.AddEmployee(V.Str(body, "name", 1, 200));
-                            if (reqPath == "/api/employee/update") _db.UpdateEmployee(V.Int(body, "id", 1), V.Str(body, "name", 1, 200));
-                            if (reqPath == "/api/assign") _db.AssignLocker(V.Int(body, "lockerId", 1), V.NullableInt(body, "employeeId", 1));
-                            if (reqPath == "/api/tag/add") _db.AddTag(V.Str(body, "uid", 4, 64), V.Int(body, "employeeId", 1));
+                            if (reqPath == "/api/employee/update") _db.UpdateEmployee(V.Number(body, "id", 1), V.Str(body, "name", 1, 200));
+                            if (reqPath == "/api/assign") _db.AssignLocker(V.Number(body, "lockerId", 1), V.NullableNumber(body, "employeeId", 1));
+                            if (reqPath == "/api/tag/add") _db.AddTag(V.Str(body, "uid", 4, 64), V.Number(body, "employeeId", 1));
                             if (reqPath == "/api/tag/delete") _db.DeleteTag(V.Str(body, "uid", 4, 64));
-                            if (reqPath == "/api/locker/faulty") _db.SetFaulty(V.Int(body, "id", 1), V.Bool(body, "faulty"));
-                            if (reqPath == "/api/locker/service") _db.SetServiceLockers(V.Int(body, "id1", 1), V.Int(body, "id2", 1));
-                            if (reqPath == "/api/open") { int lid = V.Int(body, "lockerId", 1); var l = _db.GetLockers().FirstOrDefault(x => x.Id == lid); if (l != null) { bool ok = await _hw.PulseRelayAsync(l.ModuleId, l.ChannelId); if (!ok) { status = 500; json = JsonSerializer.Serialize(new { error = "Не удалось открыть ячейку" }, _jsonOptions); } } }
+                            if (reqPath == "/api/locker/faulty") _db.SetFaulty(V.Number(body, "id", 1), V.Bool(body, "faulty"));
+                            if (reqPath == "/api/locker/service") _db.SetServiceLockers(V.Number(body, "id1", 1), V.Number(body, "id2", 1));
+                            if (reqPath == "/api/open") { int lid = V.Number(body, "lockerId", 1); var l = _db.GetLockers().FirstOrDefault(x => x.Id == lid); if (l != null) { bool ok = await _hw.PulseRelayAsync(l.ModuleId, l.ChannelId); if (!ok) { status = 500; json = JsonSerializer.Serialize(new { error = "Не удалось открыть ячейку" }, _jsonOptions); } } }
                         }
                         break;
 
