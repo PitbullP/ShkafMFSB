@@ -7,6 +7,10 @@
             <TextBlock x:Name="TxtMain" Text="Приложите карту к считывателю" FontSize="72" FontWeight="Bold" Foreground="White" TextAlignment="Center" Margin="0,40,0,0"/>
             <TextBlock x:Name="TxtSub" FontSize="40" Foreground="#DDDDDD" TextAlignment="Center" Margin="0,20,0,0" Visibility="Collapsed"/>
         </StackPanel>
+        <Border x:Name="DemoBanner" Background="#B45309" Padding="20,10" VerticalAlignment="Top" Visibility="Collapsed">
+            <TextBlock Text="⚠️ ДЕМО-РЕЖИМ: оборудование эмулируется"
+                       Foreground="White" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center"/>
+        </Border>
         <Rectangle Width="100" Height="100" HorizontalAlignment="Right" VerticalAlignment="Bottom" Fill="Transparent" MouseDown="AdminZone_MouseDown"/>
     </Grid>
 </Window>

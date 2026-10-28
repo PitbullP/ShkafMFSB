@@ -17,6 +17,7 @@ public partial class KioskWindow : Window
         InitializeComponent();
         App.MainKiosk = this;
         App.Hw.TagScanned += OnTagScanned;
+        DemoBanner.Visibility = App.Hw.Settings.DemoMode ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private async void OnTagScanned(string uid)

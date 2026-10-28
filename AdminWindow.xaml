@@ -109,6 +109,7 @@
         <Grid x:Name="MainPanel" Visibility="Collapsed">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
@@ -132,7 +133,13 @@
                 </Grid>
             </Border>
 
-            <TabControl Grid.Row="1" Margin="15,0,15,15" Background="Transparent" BorderThickness="0">
+            <!-- Баннер демо-режима (виден только при DemoMode=true) -->
+            <Border Grid.Row="1" x:Name="DemoBanner" Background="#B45309" Padding="15,8" Visibility="Collapsed">
+                <TextBlock Text="⚠️ ДЕМО-РЕЖИМ: оборудование эмулируется, реальные ячейки не открываются"
+                           Foreground="White" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+            </Border>
+
+            <TabControl Grid.Row="2" Margin="15,0,15,15" Background="Transparent" BorderThickness="0">
                 
                 <!-- ВКЛАДКА: СОТРУДНИКИ -->
                 <TabItem Header="Сотрудники">

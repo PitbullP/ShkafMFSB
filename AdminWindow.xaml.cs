@@ -20,6 +20,7 @@ public partial class AdminWindow : Window
     public AdminWindow()
     {
         InitializeComponent();
+        DemoBanner.Visibility = App.Hw.Settings.DemoMode ? Visibility.Visible : Visibility.Collapsed;
         _sessionTimer.Tick += (_, _) => OnSessionTick();
         _statusTimer.Tick += (_, _) => UpdateHardwareStatus();
 
