@@ -60,6 +60,11 @@ public partial class AdminWindow : Window
     private void EmpGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         _selectedEmployee = EmpGrid.SelectedItem as Employee;
+        RenderEmployeeDetails();
+    }
+
+    private void RenderEmployeeDetails()
+    {
         if (_selectedEmployee == null) return;
 
         EmpDetailsPanel.Children.Clear();
@@ -105,12 +110,62 @@ public partial class AdminWindow : Window
 
         EmpDetailsPanel.Children.Add(combo);
 
+        // === Метки сотрудника ===
+        EmpDetailsPanel.Children.Add(new TextBlock { Text = "Метки сотрудника:", Foreground = new SolidColorBrush(Color.FromRgb(156, 163, 175)), Margin = new Thickness(0, 10, 0, 5) });
+
+        var myTags = App.Db.GetTags().Where(t => t.EmployeeId == _selectedEmployee.Id).ToList();
+        if (myTags.Count == 0)
+        {
+            EmpDetailsPanel.Children.Add(new TextBlock { Text = "Нет зарегистрированных меток", Foreground = new SolidColorBrush(Color.FromRgb(107, 114, 128)), FontStyle = FontStyles.Italic, Margin = new Thickness(0, 0, 0, 5) });
+        }
+        else
+        {
+            foreach (var tag in myTags)
+            {
+                var tagRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 2) };
+                tagRow.Children.Add(new TextBlock { Text = tag.Uid, Foreground = Brushes.White, VerticalAlignment = VerticalAlignment.Center, Width = 200, FontFamily = new FontFamily("Consolas") });
+                var delTagBtn = new Button { Content = "Удалить", Style = (Style)FindResource("DangerBtn"), Padding = new Thickness(8, 3, 8, 3), Margin = new Thickness(8, 0, 0, 0) };
+                var tagUid = tag.Uid;
+                delTagBtn.Click += (s, ev) =>
+                {
+                    if (MessageBox.Show($"Удалить метку {tagUid}?\nСотрудник {_selectedEmployee.FullName} не сможет открыть ячейку этой меткой.", "Подтверждение", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+                    {
+                        App.Db.DeleteTag(tagUid);
+                        App.Db.AddLog(_selectedEmployee.Id, null, "ADMIN_DELETE_TAG", tagUid);
+                        RenderEmployeeDetails();
+                    }
+                };
+                tagRow.Children.Add(delTagBtn);
+                EmpDetailsPanel.Children.Add(tagRow);
+            }
+        }
+
+        var addTagBtn = new Button { Content = "+ Добавить метку", Style = (Style)FindResource("PrimaryBtn"), HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 8, 0, 0), Padding = new Thickness(10, 4, 10, 4) };
+        addTagBtn.Click += (s, ev) =>
+        {
+            var dlg = new AddTagWindow { Owner = this };
+            if (dlg.ShowDialog() == true && !string.IsNullOrWhiteSpace(dlg.TagUid))
+            {
+                try
+                {
+                    App.Db.AddTag(dlg.TagUid!, _selectedEmployee.Id);
+                    App.Db.AddLog(_selectedEmployee.Id, null, "ADMIN_ADD_TAG", dlg.TagUid!);
+                    RenderEmployeeDetails();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Не удалось добавить метку: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        };
+        EmpDetailsPanel.Children.Add(addTagBtn);
+
         // Кнопки управления
         var btnRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 20, 0, 0) };
         var delBtn = new Button { Content = "Удалить сотрудника", Style = (Style)FindResource("DangerBtn") };
         delBtn.Click += (s, ev) =>
         {
-            if (MessageBox.Show("Удалить сотрудника?", "Подтверждение", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+            if (MessageBox.Show($"Удалить сотрудника {_selectedEmployee.FullName}?\n\nБудут удалены:\n- все метки сотрудника\n- привязка к ячейке (ячейка станет свободной)", "Подтверждение удаления", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
             {
                 App.Db.DeleteEmployee(_selectedEmployee.Id);
                 LoadData();
