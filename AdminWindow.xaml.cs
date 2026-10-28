@@ -48,9 +48,25 @@ public partial class AdminWindow : Window
 
     private void LoadData()
     {
-        EmpGrid.ItemsSource = App.Db.GetEmployees(SearchBox.Text);
+        var employees = App.Db.GetEmployees(SearchBox.Text);
+
+        var filter = (EmpFilter?.SelectedItem as ComboBoxItem)?.Tag as string ?? "all";
+        employees = filter switch
+        {
+            "noTag"    => employees.Where(e => e.TagCount == 0).ToList(),
+            "noLocker" => employees.Where(e => e.LockerDisplay == "—").ToList(),
+            _          => employees
+        };
+
+        EmpGrid.ItemsSource = employees;
         _lockers = App.Db.GetLockers();
         HardwareGrid.ItemsSource = _lockers;
+    }
+
+    private void EmpFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (EmpFilter == null) return; // вызов до InitializeComponent / при первом заполнении
+        LoadData();
     }
 
     private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)

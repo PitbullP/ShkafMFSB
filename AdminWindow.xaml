@@ -144,8 +144,13 @@
                                 </Grid.RowDefinitions>
                                 
                                 <StackPanel Orientation="Horizontal" Grid.Row="0" Margin="0,0,0,10">
-                                    <TextBox x:Name="SearchBox" Width="220" TextChanged="SearchBox_TextChanged"/>
-                                    <Button Content="+ Добавить" Style="{StaticResource PrimaryBtn}" Click="AddEmployee_Click" Margin="10,0,0,0"/>
+                                    <TextBox x:Name="SearchBox" Width="180" TextChanged="SearchBox_TextChanged"/>
+                                    <ComboBox x:Name="EmpFilter" Width="130" Margin="8,0,0,0" SelectedIndex="0" SelectionChanged="EmpFilter_SelectionChanged">
+                                        <ComboBoxItem Content="Все" Tag="all"/>
+                                        <ComboBoxItem Content="Без меток" Tag="noTag"/>
+                                        <ComboBoxItem Content="Без ячейки" Tag="noLocker"/>
+                                    </ComboBox>
+                                    <Button Content="+ Добавить" Style="{StaticResource PrimaryBtn}" Click="AddEmployee_Click" Margin="8,0,0,0"/>
                                 </StackPanel>
 
                                 <DataGrid x:Name="EmpGrid" Grid.Row="1" SelectionChanged="EmpGrid_SelectionChanged" IsReadOnly="True" CanUserSortColumns="True">
