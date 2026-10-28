@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -66,6 +67,21 @@ public partial class AdminWindow : Window
         EmpGrid.ItemsSource = employees;
         _lockers = App.Db.GetLockers();
         HardwareGrid.ItemsSource = _lockers;
+        RenderDashboard();
+    }
+
+    private void RenderDashboard()
+    {
+        var employees = App.Db.GetEmployees();
+        var lockers = App.Db.GetLockers();
+        var tags = App.Db.GetTags();
+        var logs = App.Db.GetLogs();
+
+        DashEmployees.Text = employees.Count.ToString(CultureInfo.InvariantCulture);
+        DashTags.Text = tags.Count.ToString(CultureInfo.InvariantCulture);
+        DashLockers.Text = $"{lockers.Count} (своб. {lockers.Count(l => !l.EmployeeId.HasValue && !l.IsService)})";
+        DashFaulty.Text = lockers.Count(l => l.IsFaulty).ToString(CultureInfo.InvariantCulture);
+        DashLogGrid.ItemsSource = logs.Take(10).ToList();
     }
 
     private void EmpFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
