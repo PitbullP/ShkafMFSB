@@ -388,6 +388,43 @@ public partial class AdminWindow : Window
         SessionTimerText.Text = $"⏱ Сессия: {remaining.Minutes:D2}:{remaining.Seconds:D2}";
     }
 
+    private void UnassignAllLockers_Click(object sender, RoutedEventArgs e)
+    {
+        if (MessageBox.Show("Снять всех сотрудников со всех ячеек?\n\nЯчейки станут свободными, метки останутся привязанными к сотрудникам.",
+                "Подтверждение", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+
+        App.Db.UnassignAllLockers();
+        LoadData();
+        BuildLockerMatrix();
+        LockerDetailsPanel.Children.Clear();
+        _selectedLocker = null;
+    }
+
+    private async void OpenServiceLockers_Click(object sender, RoutedEventArgs e)
+    {
+        var serviceLockers = _lockers.Where(l => l.IsService).ToList();
+        if (serviceLockers.Count == 0)
+        {
+            MessageBox.Show("Сервисных ячеек нет.", "Информация", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        if (MessageBox.Show($"Открыть все сервисные ячейки ({serviceLockers.Count} шт.)?",
+                "Подтверждение", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+
+        int ok = 0, fail = 0;
+        foreach (var locker in serviceLockers)
+        {
+            bool success = await App.Hw.PulseRelayAsync(locker.ModuleId, locker.ChannelId);
+            if (success) ok++; else fail++;
+        }
+
+        App.Db.AddLog(null, null, "ADMIN_OPEN_SERVICE", $"ok={ok}, fail={fail}");
+        MessageBox.Show($"Открытие сервисных ячеек:\nУспешно: {ok}\nОшибок: {fail}",
+            fail == 0 ? "Готово" : "С ошибками", MessageBoxButton.OK,
+            fail == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
+    }
+
     private void UpdateHardwareStatus()
     {
         var green = new SolidColorBrush(Color.FromRgb(22, 101, 52));  // #166534

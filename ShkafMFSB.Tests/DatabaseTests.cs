@@ -208,6 +208,23 @@ public class DatabaseTests
     }
 
     [Fact]
+    public void UnassignAllLockers_RemovesAllAssignments()
+    {
+        using var t = new TempDb();
+        t.Db.Initialize();
+        t.Db.AddEmployee("Иванов");
+        t.Db.AddEmployee("Петров");
+        var emps = t.Db.GetEmployees();
+        t.Db.AssignLocker(1, emps[0].Id);
+        t.Db.AssignLocker(2, emps[1].Id);
+
+        t.Db.UnassignAllLockers();
+
+        var lockers = t.Db.GetLockers();
+        Assert.All(lockers, l => Assert.Null(l.EmployeeId));
+    }
+
+    [Fact]
     public void AddLog_And_GetLogs()
     {
         using var t = new TempDb();

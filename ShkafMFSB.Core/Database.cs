@@ -184,6 +184,13 @@ public class Database
     public void SetFaulty(int id, bool isFaulty) { using var c = Open(); c.Execute("UPDATE Lockers SET IsFaulty = @f WHERE Id = @id", new { f = isFaulty ? 1 : 0, id }); AddLog(null, id, "ADMIN_SET_FAULTY", $"faulty={isFaulty}"); }
     public void SetServiceLockers(int id1, int id2) { using var c = Open(); c.Execute("UPDATE Lockers SET IsService = 0"); c.Execute("UPDATE Lockers SET IsService = 1, EmployeeId = NULL WHERE Id IN (@id1, @id2)", new { id1, id2 }); AddLog(null, null, "ADMIN_SET_SERVICE", $"id1={id1}, id2={id2}"); }
 
+    public void UnassignAllLockers()
+    {
+        using var c = Open();
+        int affected = c.Execute("UPDATE Lockers SET EmployeeId = NULL WHERE EmployeeId IS NOT NULL");
+        AddLog(null, null, "ADMIN_UNASSIGN_ALL", $"освобождено ячеек: {affected}");
+    }
+
     // === МЕТКИ ===
     public List<RfidTag> GetTags() { using var c = Open(); return c.Query<RfidTag>(@"SELECT t.Uid, t.EmployeeId, t.Description, e.FullName as OwnerName FROM RfidTags t JOIN Employees e ON e.Id = t.EmployeeId").ToList(); }
     public void AddTag(string uid, int employeeId) { using var c = Open(); c.Execute("INSERT OR REPLACE INTO RfidTags (Uid, EmployeeId, Description) VALUES (@u, @e, 'Основная')", new { u = uid, e = employeeId }); AddLog(employeeId, null, "ADMIN_ADD_TAG", uid); }
