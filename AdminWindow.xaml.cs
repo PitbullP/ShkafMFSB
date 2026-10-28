@@ -131,7 +131,6 @@ public partial class AdminWindow : Window
                     if (MessageBox.Show($"Удалить метку {tagUid}?\nСотрудник {_selectedEmployee.FullName} не сможет открыть ячейку этой меткой.", "Подтверждение", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
                     {
                         App.Db.DeleteTag(tagUid);
-                        App.Db.AddLog(_selectedEmployee.Id, null, "ADMIN_DELETE_TAG", tagUid);
                         RenderEmployeeDetails();
                     }
                 };
@@ -149,7 +148,6 @@ public partial class AdminWindow : Window
                 try
                 {
                     App.Db.AddTag(dlg.TagUid!, _selectedEmployee.Id);
-                    App.Db.AddLog(_selectedEmployee.Id, null, "ADMIN_ADD_TAG", dlg.TagUid!);
                     RenderEmployeeDetails();
                 }
                 catch (Exception ex)
