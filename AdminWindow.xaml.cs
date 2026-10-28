@@ -14,12 +14,14 @@ public partial class AdminWindow : Window
 
     private const int SessionTimeoutMinutes = 10;
     private readonly DispatcherTimer _sessionTimer = new() { Interval = TimeSpan.FromSeconds(1) };
+    private readonly DispatcherTimer _statusTimer = new() { Interval = TimeSpan.FromSeconds(5) };
     private DateTime _lastActivity = DateTime.UtcNow;
 
     public AdminWindow()
     {
         InitializeComponent();
         _sessionTimer.Tick += (_, _) => OnSessionTick();
+        _statusTimer.Tick += (_, _) => UpdateHardwareStatus();
 
         // Любая активность продлевает сессию
         PreviewMouseMove += (_, _) => ResetActivity();
@@ -36,6 +38,8 @@ public partial class AdminWindow : Window
             MainPanel.Visibility = Visibility.Visible;
             ResetActivity();
             _sessionTimer.Start();
+            UpdateHardwareStatus();
+            _statusTimer.Start();
             LoadData();
             BuildLockerMatrix();
         }
@@ -384,9 +388,33 @@ public partial class AdminWindow : Window
         SessionTimerText.Text = $"⏱ Сессия: {remaining.Minutes:D2}:{remaining.Seconds:D2}";
     }
 
+    private void UpdateHardwareStatus()
+    {
+        var green = new SolidColorBrush(Color.FromRgb(22, 101, 52));  // #166534
+        var red = new SolidColorBrush(Color.FromRgb(127, 29, 29));    // #7F1D1D
+
+        if (App.Hw.Settings.DemoMode)
+        {
+            ModbusBadge.Background = green;
+            ModbusText.Text = "🟢 Modbus: DEMO";
+            RfidBadge.Background = green;
+            RfidText.Text = "🟢 RFID: DEMO";
+            return;
+        }
+
+        bool modbusOk = App.Hw.IsModbusConnected;
+        ModbusBadge.Background = modbusOk ? green : red;
+        ModbusText.Text = modbusOk ? "🟢 Modbus" : "🔴 Modbus";
+
+        bool rfidOk = App.Hw.IsRfidAvailable;
+        RfidBadge.Background = rfidOk ? green : red;
+        RfidText.Text = rfidOk ? "🟢 RFID" : "🔴 RFID";
+    }
+
     private void LockSession()
     {
         _sessionTimer.Stop();
+        _statusTimer.Stop();
         MainPanel.Visibility = Visibility.Collapsed;
         PinPanel.Visibility = Visibility.Visible;
         PinBox.Clear();
