@@ -3,8 +3,6 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>ShkafMFSB</AssemblyName>
     <RootNamespace>ShkafMFSB</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
@@ -16,12 +14,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.10" />
-    <PackageReference Include="Dapper" Version="2.1.35" />
-    <PackageReference Include="System.IO.Ports" Version="8.0.0" />
-    <PackageReference Include="NModbus" Version="3.0.81" />
-    <PackageReference Include="NModbus.Serial" Version="3.0.81" />
-    <PackageReference Include="PCSC" Version="6.1.1" />
+    <!-- Исключаем папку Core из компиляции WPF-проекта (она собирается отдельным проектом) -->
+    <Compile Remove="ShkafMFSB.Core\**\*.cs" />
+    <None Remove="ShkafMFSB.Core\**\*" />
+    <EmbeddedResource Remove="ShkafMFSB.Core\**\*" />
+    <Page Remove="ShkafMFSB.Core\**\*" />
+
+    <!-- Исключаем папку Tests из компиляции WPF-проекта -->
+    <Compile Remove="ShkafMFSB.Tests\**\*.cs" />
+    <None Remove="ShkafMFSB.Tests\**\*" />
+    <EmbeddedResource Remove="ShkafMFSB.Tests\**\*" />
+    <Page Remove="ShkafMFSB.Tests\**\*" />
   </ItemGroup>
 
   <ItemGroup>
@@ -31,6 +34,9 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>
     
+    <!-- Ссылка на Core (Database, Hardware, Logger, Models) -->
+    <ProjectReference Include="ShkafMFSB.Core\ShkafMFSB.Core.csproj" />
+
     <!-- Встраиваем HTML в EXE (на всякий случай) -->
     <EmbeddedResource Include="web\index.html" />
     

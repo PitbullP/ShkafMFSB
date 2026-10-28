@@ -1,0 +1,49 @@
+# --- Build artifacts ---
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Ll]og/
+[Ll]ogs/
+publish/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# --- Visual Studio / Rider / VS Code ---
+.vs/
+.idea/
+.vscode/
+*.swp
+*~
+
+# --- .NET ---
+*.dll
+*.pdb
+*.mdb
+*.cache
+*.pidb
+*.svclog
+project.lock.json
+project.fragment.lock.json
+artifacts/
+*.nupkg
+*.snupkg
+
+# --- Runtime data проекта (БД, логи, конфиги среды) ---
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+app.log
+app.*.log
+logs/
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Пользовательские настройки IDE ---
+*.DotSettings.user

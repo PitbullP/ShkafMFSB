@@ -5,7 +5,7 @@ namespace ShkafMFSB;
 public partial class App : Application
 {
     public static Database Db { get; private set; } = null!;
-    public static Hardware Hw { get; private set; } = null!;
+    public static IHardware Hw { get; private set; } = null!;
     public static WebServer Server { get; private set; } = null!;
     public static KioskWindow? MainKiosk { get; set; }
 
@@ -14,7 +14,7 @@ public partial class App : Application
         AppDomain.CurrentDomain.UnhandledException += (s, args) =>
         {
             var ex = args.ExceptionObject as Exception;
-            Logger.LogError("AppDomain", ex ?? new Exception("Неизвестная ошибка"));
+            Logger.LogError("AppDomain", ex ?? new InvalidOperationException("Неизвестная ошибка в AppDomain"));
         };
 
         DispatcherUnhandledException += (s, args) =>
@@ -27,11 +27,14 @@ public partial class App : Application
         {
             Logger.Log("=== ЗАПУСК ПРОГРАММЫ ===");
             base.OnStartup(e);
-            
+
+            var cfg = ConfigExtensions.Load();
+            Hw = cfg.DemoMode ? new DemoHardware(cfg) : new RealHardware(cfg);
+            Logger.Log(cfg.DemoMode ? "Режим: ДЕМО" : "Режим: РЕАЛЬНОЕ оборудование");
+
             Db = new Database();
-            Db.Initialize();
-            
-            Hw = new Hardware();
+            Db.Initialize(Hw.Settings.LockerConfig);
+
             Hw.ConnectModbus();
             Hw.StartRfid();
 
@@ -44,5 +47,15 @@ public partial class App : Application
             MessageBox.Show($"Не удалось запустить программу:\n{ex.Message}\n\nПодробности в app.log", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown();
         }
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        try { Server?.Dispose(); }
+        catch (Exception ex) { Logger.LogError("App.OnExit (Server)", ex); }
+        try { Hw?.Dispose(); }
+        catch (Exception ex) { Logger.LogError("App.OnExit (Hardware)", ex); }
+        Logger.Log("=== ЗАВЕРШЕНИЕ ПРОГРАММЫ ===");
+        base.OnExit(e);
     }
 }

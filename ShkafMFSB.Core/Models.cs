@@ -1,4 +1,4 @@
-﻿namespace ShkafMFSB;
+namespace ShkafMFSB;
 
 public class Employee
 {
