@@ -324,6 +324,30 @@ public partial class AdminWindow : Window
     // ═══════════════════════════════════════════════════════════════
     //  ВКЛАДКА: НАСТРОЙКИ
     // ═══════════════════════════════════════════════════════════════
+    private void LockerSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(LockerSearchBox.Text))
+        {
+            // Очистка поиска — снимаем подсветку
+            if (_selectedLocker != null)
+            {
+                _selectedLocker = null;
+                BuildLockerMatrix();
+                LockerDetailsPanel.Children.Clear();
+            }
+            return;
+        }
+
+        if (!int.TryParse(LockerSearchBox.Text.Trim(), out var id)) return;
+
+        var locker = _lockers.FirstOrDefault(l => l.Id == id);
+        if (locker == null) return;
+
+        _selectedLocker = locker;
+        BuildLockerMatrix();
+        RenderLockerDetails();
+    }
+
     private async void TestRelay_Click(object sender, RoutedEventArgs e)
     {
         if ((sender as Button)?.Tag is Locker l)

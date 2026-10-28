@@ -196,6 +196,12 @@
                                     <TextBlock Text="неисправна" Foreground="#9CA3AF" VerticalAlignment="Center"/>
                                 </StackPanel>
                                 
+                                <!-- Поиск по номеру ячейки -->
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <TextBlock Text="Найти ячейку:" Foreground="#9CA3AF" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBox x:Name="LockerSearchBox" Width="80" TextChanged="LockerSearchBox_TextChanged"/>
+                                </StackPanel>
+
                                 <!-- Сама матрица 4x17 -->
                                 <Grid x:Name="LockerMatrix" MaxWidth="560" HorizontalAlignment="Center"/>
                             </StackPanel>
