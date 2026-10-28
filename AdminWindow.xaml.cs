@@ -53,9 +53,9 @@ public partial class AdminWindow : Window
         var filter = (EmpFilter?.SelectedItem as ComboBoxItem)?.Tag as string ?? "all";
         employees = filter switch
         {
-            "noTag"    => employees.Where(e => e.TagCount == 0).ToList(),
+            "noTag" => employees.Where(e => e.TagCount == 0).ToList(),
             "noLocker" => employees.Where(e => e.LockerDisplay == "—").ToList(),
-            _          => employees
+            _ => employees
         };
 
         EmpGrid.ItemsSource = employees;
