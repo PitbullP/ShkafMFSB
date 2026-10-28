@@ -2,6 +2,20 @@
 
 Формат: Keep a Changelog, SemVer.
 
+## [0.7.0] - 2025-10-28 - Админ-панель P1
+
+### Added
+- Сортировка колонок в `EmpGrid` (`CanUserSortColumns`, `SortMemberPath=LockerDisplay`) (#P1.1)
+- Фильтры сотрудников: Все / Без меток / Без ячейки (#P1.2)
+- Поиск по номеру ячейки: `LockerSearchBox` + подсветка + карточка ячейки (#P1.3)
+- `IHardware.IsModbusConnected` / `IsRfidAvailable` + реализация в `RealHardware`/`DemoHardware` (#P1.4.1)
+- Индикатор статуса Modbus/RFID в верхней панели, обновление раз в 5 с, `DEMO` badge (#P1.4.2)
+- Массовые операции: «Снять всех с ячеек» (`UnassignAllLockers`), «Открыть сервисные» (#P1.5)
+
+### Changed
+- `SessionTimer` и `StatusTimer` останавливаются в `LockSession`
+- Тестов: 42 passed, 1 skipped (+3: `IsModbusConnected`, `IsRfidAvailable`, `UnassignAllLockers`)
+
 ## [0.6.0] - 2025-10-28 - Админ-панель P0
 
 ### Added
