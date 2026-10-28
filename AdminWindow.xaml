@@ -148,10 +148,10 @@
                                     <Button Content="+ Добавить" Style="{StaticResource PrimaryBtn}" Click="AddEmployee_Click" Margin="10,0,0,0"/>
                                 </StackPanel>
 
-                                <DataGrid x:Name="EmpGrid" Grid.Row="1" SelectionChanged="EmpGrid_SelectionChanged" IsReadOnly="True">
+                                <DataGrid x:Name="EmpGrid" Grid.Row="1" SelectionChanged="EmpGrid_SelectionChanged" IsReadOnly="True" CanUserSortColumns="True">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="ФИО" Binding="{Binding FullName}" Width="*"/>
-                                        <DataGridTextColumn Header="Ячейка" Binding="{Binding LockerDisplay}" Width="80"/>
+                                        <DataGridTextColumn Header="Ячейка" Binding="{Binding LockerDisplay}" SortMemberPath="LockerDisplay" Width="80"/>
                                     </DataGrid.Columns>
                                 </DataGrid>
                             </Grid>
