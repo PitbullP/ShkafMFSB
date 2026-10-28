@@ -2,6 +2,22 @@
 
 Формат: Keep a Changelog, SemVer.
 
+## [0.6.0] - 2025-10-28 - Админ-панель P0
+
+### Added
+- Управление метками сотрудника в WPF-админке: список UID, добавление (`AddTagWindow` + сканирование 15с), удаление с подтверждением (#P0.1)
+- Аудит всех админ-действий в `Database`: `ADMIN_ADD_EMPLOYEE`, `ADMIN_UPDATE_EMPLOYEE`, `ADMIN_DELETE_EMPLOYEE`, `ADMIN_ASSIGN_LOCKER`, `ADMIN_UPDATE_HARDWARE`, `ADMIN_SET_FAULTY`, `ADMIN_SET_SERVICE`, `ADMIN_ADD_TAG`, `ADMIN_DELETE_TAG`, `ADMIN_UPDATE_PIN` (#P0.2)
+- Таймаут сессии 10 мин в `AdminWindow` + кнопка «🔒 Заблокировать»; индикатор обратного отсчёта (#P0.3)
+- `oldPin` при смене PIN через `/api/settings/pin` — требуется знание текущего PIN, не только Bearer-токен (#P0.4)
+
+### Changed
+- Подтверждение удаления сотрудника: перечислены последствия (метки, привязка ячейки)
+- `AdminWindow`: `EmpGrid_SelectionChanged` → `RenderEmployeeDetails()` для повторного рендера
+
+### Fixed
+- CA1305 в `Database.AssignLocker` (`ToString(InvariantCulture)`)
+- CA0108: `AddTagWindow.Uid` → `TagUid` (не скрывать `UIElement.Uid`)
+
 ## [0.5.0] - 2025-10-27 - Качество
 
 ### Added
