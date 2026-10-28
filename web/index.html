@@ -194,6 +194,10 @@
             
             <h4 style="margin-top:20px">Смена PIN</h4>
             <div style="display:flex;gap:8px;align-items:center;margin:12px 0">
+              <label style="color:#9CA3AF;font-size:13px">Текущий PIN:</label>
+              <input class="field" id="oldPin" type="password" style="max-width:100px; margin:0;">
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;margin:12px 0">
               <label style="color:#9CA3AF;font-size:13px">Новый PIN:</label>
               <input class="field" id="newPin" type="password" style="max-width:100px; margin:0;">
             </div>
@@ -515,10 +519,14 @@
 
   // ════════ НАСТРОЙКИ ════════
   async function changePin() {
+    const oldPin = document.getElementById('oldPin').value.trim();
     const pin = document.getElementById('newPin').value.trim();
-    if (pin.length < 4) return alert('PIN должен быть не менее 4 символов');
-    await api('settings/pin', 'POST', { pin });
-    alert('PIN изменен!');
+    if (!oldPin) return alert('Введите текущий PIN');
+    if (pin.length < 4) return alert('Новый PIN должен быть не менее 4 символов');
+    const res = await api('settings/pin', 'POST', { oldPin, pin });
+    if (res.error) return alert(res.error);
+    alert('PIN изменён!');
+    document.getElementById('oldPin').value = '';
     document.getElementById('newPin').value = '';
   }
 

@@ -192,7 +192,17 @@ public class WebServer : IDisposable
                         case "/api/settings/pin":
                             {
                                 var body = await ReadJsonBodyAsync(req);
-                                _db.UpdatePin(V.Str(body, "pin", 4, 128));
+                                var oldPin = V.Str(body, "oldPin", 4, 128);
+                                var newPin = V.Str(body, "pin", 4, 128);
+                                if (!_db.VerifyPin(oldPin))
+                                {
+                                    status = 400;
+                                    json = JsonSerializer.Serialize(new { error = "Неверный текущий PIN" }, _jsonOptions);
+                                }
+                                else
+                                {
+                                    _db.UpdatePin(newPin);
+                                }
                             }
                             break;
 
