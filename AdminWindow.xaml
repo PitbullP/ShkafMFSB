@@ -107,7 +107,24 @@
 
         <!-- Основная панель -->
         <Grid x:Name="MainPanel" Visibility="Collapsed">
-            <TabControl Margin="15" Background="Transparent" BorderThickness="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Верхняя панель: таймаут сессии + блокировка -->
+            <Border Grid.Row="0" Background="#111827" Padding="15,8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" x:Name="SessionTimerText" Text="" Foreground="#9CA3AF" FontSize="12" VerticalAlignment="Center"/>
+                    <Button Grid.Column="1" x:Name="LockBtn" Content="🔒 Заблокировать" Style="{StaticResource PrimaryBtn}" Padding="10,4" Click="LockBtn_Click"/>
+                </Grid>
+            </Border>
+
+            <TabControl Grid.Row="1" Margin="15,0,15,15" Background="Transparent" BorderThickness="0">
                 
                 <!-- ВКЛАДКА: СОТРУДНИКИ -->
                 <TabItem Header="Сотрудники">

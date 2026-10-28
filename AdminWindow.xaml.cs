@@ -1,6 +1,8 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace ShkafMFSB;
 
@@ -10,9 +12,19 @@ public partial class AdminWindow : Window
     private Locker? _selectedLocker;
     private Employee? _selectedEmployee;
 
+    private const int SessionTimeoutMinutes = 10;
+    private readonly DispatcherTimer _sessionTimer = new() { Interval = TimeSpan.FromSeconds(1) };
+    private DateTime _lastActivity = DateTime.UtcNow;
+
     public AdminWindow()
     {
         InitializeComponent();
+        _sessionTimer.Tick += (_, _) => OnSessionTick();
+
+        // Любая активность продлевает сессию
+        PreviewMouseMove += (_, _) => ResetActivity();
+        PreviewMouseDown += (_, _) => ResetActivity();
+        PreviewKeyDown += (_, _) => ResetActivity();
     }
 
     private void Login_Click(object sender, RoutedEventArgs e)
@@ -22,6 +34,8 @@ public partial class AdminWindow : Window
             PinBox.Clear();
             PinPanel.Visibility = Visibility.Collapsed;
             MainPanel.Visibility = Visibility.Visible;
+            ResetActivity();
+            _sessionTimer.Start();
             LoadData();
             BuildLockerMatrix();
         }
@@ -307,5 +321,46 @@ public partial class AdminWindow : Window
     {
         foreach (var l in _lockers) App.Db.UpdateHardware(l.Id, l.ModuleId, l.ChannelId);
         MessageBox.Show("Привязка оборудования сохранена в базе данных.", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    // === Сессия: таймаут и блокировка ===
+
+    private void ResetActivity()
+    {
+        _lastActivity = DateTime.UtcNow;
+    }
+
+    private void OnSessionTick()
+    {
+        var elapsed = DateTime.UtcNow - _lastActivity;
+        var remaining = TimeSpan.FromMinutes(SessionTimeoutMinutes) - elapsed;
+
+        if (remaining <= TimeSpan.Zero)
+        {
+            LockSession();
+            return;
+        }
+
+        SessionTimerText.Text = $"⏱ Сессия: {remaining.Minutes:D2}:{remaining.Seconds:D2}";
+    }
+
+    private void LockSession()
+    {
+        _sessionTimer.Stop();
+        MainPanel.Visibility = Visibility.Collapsed;
+        PinPanel.Visibility = Visibility.Visible;
+        PinBox.Clear();
+        PinBox.Focus();
+
+        EmpDetailsPanel.Children.Clear();
+        LockerDetailsPanel.Children.Clear();
+        SessionTimerText.Text = "";
+        _selectedEmployee = null;
+        _selectedLocker = null;
+    }
+
+    private void LockBtn_Click(object sender, RoutedEventArgs e)
+    {
+        LockSession();
     }
 }
