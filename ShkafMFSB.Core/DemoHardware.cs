@@ -10,6 +10,9 @@ public class DemoHardware : IHardware
     public Config Settings { get; }
     public event Action<string>? TagScanned;
 
+    public bool IsModbusConnected => true;
+    public bool IsRfidAvailable => true;
+
     public DemoHardware(Config settings) { Settings = settings; }
 
     public bool ConnectModbus() => true;

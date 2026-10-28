@@ -40,6 +40,7 @@ public class RealHardware : IHardware
 {
     private IModbusMaster? _master;
     private SerialPort? _port;
+    private volatile bool _rfidAvailable;
     public Config Settings { get; }
 
     private TaskCompletionSource<string>? _scanTcs;
@@ -110,6 +111,9 @@ public class RealHardware : IHardware
         return _scanTcs.Task;
     }
 
+    public bool IsModbusConnected => _master != null && _port?.IsOpen == true;
+    public bool IsRfidAvailable => _rfidAvailable;
+
     public void StartRfid()
     {
         Task.Run(() =>
@@ -123,6 +127,8 @@ public class RealHardware : IHardware
 
                 using var reader = new SCardReader(ctx);
                 if (reader.Connect(readerName, SCardShareMode.Shared, SCardProtocol.Any) != SCardError.Success) return;
+
+                _rfidAvailable = true;
 
                 while (true)
                 {
@@ -150,7 +156,7 @@ public class RealHardware : IHardware
                     Thread.Sleep(300);
                 }
             }
-            catch (Exception ex) { Logger.LogError("Hardware.RfidScan", ex); }
+            catch (Exception ex) { _rfidAvailable = false; Logger.LogError("Hardware.RfidScan", ex); }
         });
     }
 
@@ -165,6 +171,7 @@ public class RealHardware : IHardware
         _master = null;
         _port = null;
         _scanTcs = null;
+        _rfidAvailable = false;
         GC.SuppressFinalize(this);
     }
 }

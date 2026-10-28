@@ -28,6 +28,20 @@ public class DemoHardwareTests
     }
 
     [Fact]
+    public void IsModbusConnected_ReturnsTrue()
+    {
+        using var hw = New(out _);
+        Assert.True(hw.IsModbusConnected);
+    }
+
+    [Fact]
+    public void IsRfidAvailable_ReturnsTrue()
+    {
+        using var hw = New(out _);
+        Assert.True(hw.IsRfidAvailable);
+    }
+
+    [Fact]
     public async Task PulseRelayAsync_ReturnsTrue()
     {
         using var hw = New(out _);
