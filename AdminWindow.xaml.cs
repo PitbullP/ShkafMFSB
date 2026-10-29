@@ -315,7 +315,7 @@ public partial class AdminWindow : Window
         {
             if (_selectedLocker == null) return;
             bool ok = await App.Hw.PulseRelayAsync(_selectedLocker.ModuleId, _selectedLocker.ChannelId);
-            if (!ok) MessageBox.Show($"Не удалось открыть ячейку № {_selectedLocker.Id} (проверьте Modbus-связь)", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            if (!ok) Toasts.Show($"Не удалось открыть ячейку № {_selectedLocker.Id} (проверьте Modbus)", ToastType.Error);
         };
         LockerDetailsPanel.Children.Add(openBtn);
     }
@@ -374,14 +374,14 @@ public partial class AdminWindow : Window
         if ((sender as Button)?.Tag is Locker l)
         {
             bool ok = await App.Hw.PulseRelayAsync(l.ModuleId, l.ChannelId);
-            if (!ok) MessageBox.Show($"Не удалось открыть ячейку № {l.Id} (проверьте Modbus-связь)", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            if (!ok) Toasts.Show($"Не удалось открыть ячейку № {l.Id} (проверьте Modbus)", ToastType.Error);
         }
     }
 
     private void SaveHardware_Click(object sender, RoutedEventArgs e)
     {
         foreach (var l in _lockers) App.Db.UpdateHardware(l.Id, l.ModuleId, l.ChannelId);
-        MessageBox.Show("Привязка оборудования сохранена в базе данных.", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
+        Toasts.Show("Привязка оборудования сохранена", ToastType.Success);
     }
 
     // === Сессия: таймаут и блокировка ===
@@ -437,9 +437,8 @@ public partial class AdminWindow : Window
         }
 
         App.Db.AddLog(null, null, "ADMIN_OPEN_SERVICE", $"ok={ok}, fail={fail}");
-        MessageBox.Show($"Открытие сервисных ячеек:\nУспешно: {ok}\nОшибок: {fail}",
-            fail == 0 ? "Готово" : "С ошибками", MessageBoxButton.OK,
-            fail == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
+        Toasts.Show($"Открыто сервисных: {ok}, ошибок: {fail}",
+            fail == 0 ? ToastType.Success : ToastType.Error);
     }
 
     private void UpdateHardwareStatus()
